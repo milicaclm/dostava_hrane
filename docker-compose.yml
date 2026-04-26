@@ -1,0 +1,64 @@
+services:
+  neo4j:
+    image: neo4j:community-ubi9
+    ports:
+      - "7474:7474"  # vizuelni interfejs
+      - "7687:7687"  # Flask
+    environment:
+      - NEO4J_AUTH=neo4j/sifra
+      - NEO4J_server_memory_heap_max__size=256M
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  user-service:
+    build: ./backend/user-service
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_NEO4J_URI=bolt://neo4j:7687
+      - SPRING_NEO4J_USERNAME=neo4j
+      - SPRING_NEO4J_PASSWORD=sifra
+    depends_on:
+      - neo4j
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          restart: always
+
+  management-service:
+    build: ./backend/management-service
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_NEO4J_URI=bolt://neo4j:7687
+      - SPRING_NEO4J_USERNAME=neo4j
+      - SPRING_NEO4J_PASSWORD=sifra
+    depends_on:
+      - neo4j
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          restart: always
+
+  delivery-service:
+    build: ./backend/delivery-service
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_NEO4J_URI=bolt://neo4j:7687
+      - SPRING_NEO4J_USERNAME=neo4j
+      - SPRING_NEO4J_PASSWORD=sifra
+    depends_on:
+      - neo4j
+
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          restart: always
+
+
