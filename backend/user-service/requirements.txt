@@ -1,2 +1,4 @@
 flask
 neo4j
+flask-login
+flask_sqlalchemy
