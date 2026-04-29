@@ -5,6 +5,8 @@ networks:
 volumes:
   neo4j_data:
     driver: local
+  influxdb_data:
+    driver: local
 
 services:
   neo4j:
@@ -12,12 +14,28 @@ services:
     container_name: neo4j
     restart: on-failure
     ports:
-      - "7474:7474"  # vizuelni interfejs
-      - "7687:7687"  # Flask
+      - "7474:7474" # vizuelni interfejs
+      - "7687:7687" # Flask
     environment:
       - NEO4J_AUTH=neo4j/password
     volumes:
       - neo4j_data:/data
+
+    networks:
+      - dostava_network
+
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb
+    restart: on-failure
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=dostava_metrics
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=password
+    volumes:
+      - influxdb_data:/var/lib/influxdb
 
     networks:
       - dostava_network
@@ -38,7 +56,6 @@ services:
     networks:
       - dostava_network
 
-
   resource-service:
     build: ./backend/resource-service
     restart: on-failure
@@ -52,7 +69,7 @@ services:
       - NEO4J_PASSWORD=password
     depends_on:
       - neo4j
-
+      - influxdb
     networks:
       - dostava_network
 
@@ -69,6 +86,7 @@ services:
       - NEO4J_PASSWORD=password
     depends_on:
       - neo4j
+      - influxdb
 
     networks:
       - dostava_network
@@ -84,4 +102,3 @@ services:
       - delivery-service
     networks:
       - dostava_network
-
