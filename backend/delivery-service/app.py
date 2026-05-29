@@ -148,36 +148,51 @@ def assign_courier(delivery_id, courier_id):
             return jsonify({"message": "Courier assigned", "courier": {"id": c.get("id")}, "delivery": {"id": d.get("id")}})
         return jsonify({"error": "Could not assign courier"}), 500
 
-@app.route('/deliveries/<delivery_id>/assign_vehicle/<license_plate>', methods=['POST'])
-def assign_vehicle(delivery_id, license_plate):
+@app.route('/users/<user_id>/assign_vehicle/<license_plate>', methods=['POST'])
+def assign_vehicle(user_id, license_plate):
     with driver.session() as session:
-        result = session.run(
-            "MATCH (d:Delivery {id: $delivery_id}), (v:Vehicle {license_plate: $license_plate}) "
-            "CREATE (v)-[:USES_VEHICLE]->(d) RETURN v, d",
-            delivery_id=delivery_id,
+        user_rec = session.run(
+            "MATCH (u:User {id: $user_id}) WHERE u.account_type IN ['courier','delivery'] RETURN u",
+            user_id=user_id
+        ).single()
+        if not user_rec:
+            return jsonify({"error": "User not found or invalid account_type"}), 404
+
+        vehicle_rec = session.run(
+            "MATCH (v:Vehicle {license_plate: $license_plate}) RETURN v",
             license_plate=license_plate
-        )
-        record = result.single()
-        if record:
-            vehicle_node = record["v"]
-            delivery_node = record["d"]
-            response = {
-                "vehicle": {
-                    "type": vehicle_node["type"],
-                    "license_plate": vehicle_node["license_plate"],
-                    "is_ready": vehicle_node["is_ready"]
-                },
-                "delivery": {
-                    "id": delivery_node["id"],
-                    "status": delivery_node["status"],
-                    "from_location": delivery_node["from_location"],
-                    "to_location": delivery_node["to_location"],
-                    "order_time": _fmt_dt(delivery_node.get("order_time"))
-                }
-            }
-            return jsonify(response)
-        else:
-            return jsonify({"error": "Delivery or Vehicle not found"}), 404
+        ).single()
+        if not vehicle_rec:
+            return jsonify({"error": "Vehicle not found"}), 404
+
+        cnt = session.run(
+            "MATCH (u:User {id: $user_id})-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) RETURN count(r) AS cnt",
+            user_id=user_id,
+            license_plate=license_plate
+        ).single()["cnt"]
+        if cnt > 0:
+            return jsonify({"message": "Vehicle already assigned to this user"})
+
+        other = session.run(
+            "MATCH (other:User)-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) RETURN other.id AS other_id LIMIT 1",
+            license_plate=license_plate
+        ).single()
+        if other and other.get("other_id") and other.get("other_id") != user_id:
+            return jsonify({"error": "Vehicle already assigned to another user"}), 409
+        
+        res = session.run(
+            "MATCH (u:User {id: $user_id}), (v:Vehicle {license_plate: $license_plate}) CREATE (u)-[:USES_VEHICLE]->(v) RETURN u, v",
+            user_id=user_id,
+            license_plate=license_plate
+        ).single()
+        if res:
+            u = res["u"]
+            v = res["v"]
+            return jsonify({"message": "Vehicle assigned", "user": {"id": u.get("id")}, "vehicle": {"license_plate": v.get("license_plate")}})
+        return jsonify({"error": "Could not assign vehicle"}), 500
+
+    
+    
         
 @app.route('/deliveries/<delivery_id>/products', methods=['POST'])
 def add_product_to_delivery(delivery_id):
