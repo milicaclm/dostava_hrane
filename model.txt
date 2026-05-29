@@ -1,12 +1,20 @@
 class User:
     id: str
-    name: str
-    surname: str
+    name: str #
+    surname: str #
     password: str
     account_type: str
-    email: str
-    phone_number: str
-    is_active: bool 
+    email: str #
+    phone_number: str #
+    is_active: bool #
+
+    
+    starting_date: date #
+    car_licence: bool #
+    motorcycle_licence: bool #
+
+
+
 
 class Delivery:
     id: str
