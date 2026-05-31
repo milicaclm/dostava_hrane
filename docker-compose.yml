@@ -120,7 +120,7 @@ services:
       - INFLUXDB_PASSWORD=superpassword
       - INFLUXDB_TOKEN=mytoken123
       - INFLUXDB_ORG=docs
-      - INFLUXDB_BUCKET=home
+      - INFLUXDB_BUCKET=location_data
       - REDIS_HOST=redisdb
       - REDIS_PORT=6379
       - FLASK_APP=app.py

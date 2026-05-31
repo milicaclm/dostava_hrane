@@ -10,11 +10,17 @@ influx_token = os.environ.get('INFLUXDB_TOKEN', 'mytoken123')
 influx_org = os.environ.get('INFLUXDB_ORG', 'docs')
 
 client = InfluxDBClient(url=influx_url, token=influx_token, org=influx_org)
+write_api = client.write_api()
+
 
 
 @app.route('/health', methods=['GET'])
 def health():
 	return jsonify(status='ok')
+
+
+
+
 
 
 if __name__ == '__main__':

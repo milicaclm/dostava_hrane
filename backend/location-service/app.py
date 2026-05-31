@@ -1,20 +1,25 @@
 
+from datetime import datetime
 import os
 from flask import Flask, jsonify, request
 from redis import Redis
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
+import threading
+import time
+import random
+
+lock = threading.Lock()
 
 app = Flask(__name__)
 
-# --- REDIS CONFIG ---
 redis_client = Redis(
     host=os.environ.get("REDIS_HOST", "localhost"),
     port=int(os.environ.get("REDIS_PORT", 6379)),
     decode_responses=True
 )
 
-# --- INFLUXDB CONFIG ---
+
 influx_url = os.environ.get("INFLUXDB_URL", "http://localhost:8086")
 influx_token = os.environ.get("INFLUXDB_TOKEN", "mytoken123")
 influx_org = os.environ.get("INFLUXDB_ORG", "docs")
@@ -29,40 +34,81 @@ query_api = influx_client.query_api()
 def health():
     return jsonify(status="ok"), 200
 
-def save_location(user_id, latitude, longitude):
-    point = Point("user_location")
-    point.tag("user_id", user_id)
-    point.field("latitude", latitude)
-    point.field("longitude", longitude)
-    write_api.write(bucket=influx_bucket, record=point)
+running = False
+current_lat = 0.
+current_lon = 0.
 
-def get_location(user_id):
-    query = f'from(bucket: "{influx_bucket}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "user_location" and r.user_id == "{user_id}") |> last()'
-    result = query_api.query(org=influx_org, query=query)
-    results = []
-    for table in result:
-        for record in table.records:
-            results.append(
-                {
-                    "user_id": record.values["user_id"],
-                    "latitude": record.values["latitude"],
-                    "longitude": record.values["longitude"],
-                    "time": record.values["_time"].isoformat()
-                }
-            )
-    return results[0] if results else None
 
-def delete_location(user_id):
-    query = f'from(bucket: "{influx_bucket}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "user_location" and r.user_id == "{user_id}") |> last()'
-    result = query_api.query(org=influx_org, query=query)
-    for table in result:
-        for record in table.records:
-            delete_query = f'from(bucket: "{influx_bucket}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "user_location" and r.user_id == "{user_id}" and r._time == {record.values["_time"].isoformat()}) |> drop()'
-            query_api.query(org=influx_org, query=delete_query)
+@app.route("/set_position", methods=["POST"])
+def set_position():
+    """korisnik zadaje noviju vrednost kada zeli"""
+    global current_lat, current_lon
+    data = request.get_json()
+    with lock:
+        current_lat = data.get("lat", 0.)
+        current_lon = data.get("lon", 0.)
+    return jsonify({"status": "position updated"}), 200
 
 
 
+def tracking_loop(user_id):
+    global running
 
+    count = 0
+
+    while running:
+        with lock:
+            lat = current_lat
+            lon = current_lon
+
+        point = (
+            Point("gps_position")
+            .tag("user_id", str(user_id))
+            .field("lat", lat)
+            .field("lon", lon)
+            .time(datetime.utcnow(), WritePrecision.NS)
+        )
+
+        write_api.write(bucket=influx_bucket, org=influx_org, record=point)
+        if count % 100 == 0:
+            print(f"Written {count} points so far...")
+
+        count += 1
+
+        time.sleep(1)
+
+    print(f"Stopped. Total points written: {count}")
+
+
+
+@app.route("/start", methods=["POST"])
+def start_tracking():
+    global running
+    global current_lat, current_lon
+
+    data = request.get_json()
+    user_id = data.get("user_id", "1")
+    current_lat, current_lon = data.get("lat", 0.), data.get("lon", 0.)
+
+    if running:
+        return jsonify({"status": "already running"}), 200
+
+    running = True
+
+    thread = threading.Thread(
+        target=tracking_loop,
+        args=(user_id,)
+    )
+    thread.start()
+
+    return jsonify({"status": "started"}), 200
+
+
+@app.route("/stop", methods=["POST"])
+def stop_tracking():
+    global running
+    running = False
+    return jsonify({"status": "stopped"}), 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
