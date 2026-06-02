@@ -14,7 +14,7 @@ driver = GraphDatabase.driver("bolt://neo4j:7687", auth=("neo4j", "password"))
 def hello():
     return "Hello, Resource Service!"
 
-@app.route('/resources/vehicles')
+@app.route('/vehicles')
 def get_vehicles():
     with driver.session() as session:
         result = session.run("MATCH (v:Vehicle) RETURN v")
@@ -28,7 +28,7 @@ def get_vehicles():
             })
     return {"vehicles": vehicles}
 
-@app.route('/resources/products')
+@app.route('/products')
 def get_products():
     with driver.session() as session:
         result = session.run("MATCH (p:Product) RETURN p")
@@ -43,7 +43,7 @@ def get_products():
             })
     return {"products": products}
 
-@app.route('/resources/couriers')
+@app.route('/couriers')
 def get_couriers():
     with driver.session() as session:
         result = session.run("MATCH (u:User {account_type: 'courier'}) RETURN u")
@@ -61,7 +61,7 @@ def get_couriers():
     return {"couriers": couriers}
 
         
-@app.route('/resources/couriers/<courier_id>/update', methods=['PUT'])
+@app.route('/couriers/<courier_id>/update', methods=['PUT'])
 def update_courier(courier_id):
     data = request.get_json()
     with driver.session() as session:
@@ -91,7 +91,7 @@ def update_courier(courier_id):
         else:
             return jsonify({"error": "Courier not found"}), 404
         
-@app.route('/resources/vehicles/<license_plate>/update', methods=['PUT'])
+@app.route('/vehicles/<license_plate>/update', methods=['PUT'])
 def update_vehicle(license_plate):
     data = request.get_json()
     with driver.session() as session:
@@ -115,7 +115,7 @@ def update_vehicle(license_plate):
         else:
             return jsonify({"error": "Vehicle not found"}), 404
         
-@app.route('/resources/products/<product_id>/update', methods=['PUT'])
+@app.route('/products/<product_id>/update', methods=['PUT'])
 def update_product(product_id):
     data = request.get_json()
     with driver.session() as session:
@@ -143,7 +143,7 @@ def update_product(product_id):
         
 # create
 
-@app.route('/resources/products', methods=['POST'])
+@app.route('/products', methods=['POST'])
 def create_product():
     data = request.get_json()
     with driver.session() as session:
@@ -156,7 +156,7 @@ def create_product():
         )
     return jsonify({"message": "Product created successfully"}), 201
 
-@app.route('/resources/vehicles', methods=['POST'])
+@app.route('/vehicles', methods=['POST'])
 def create_vehicle():
     data = request.get_json()
     with driver.session() as session:
@@ -168,7 +168,7 @@ def create_vehicle():
         )
     return jsonify({"message": "Vehicle created successfully"}), 201
 
-@app.route('/resources/couriers', methods=['POST'])
+@app.route('/couriers', methods=['POST'])
 def create_courier():
     data = request.get_json()
     with driver.session() as session:
@@ -186,7 +186,7 @@ def create_courier():
 
 # delete
 
-@app.route('/resources/products/<product_id>', methods=['DELETE'])
+@app.route('/products/<product_id>', methods=['DELETE'])
 def delete_product(product_id):
     with driver.session() as session:
         result = session.run(
@@ -199,7 +199,7 @@ def delete_product(product_id):
         else:
             return jsonify({"error": "Product not found"}), 404
     
-@app.route('/resources/vehicles/<license_plate>', methods=['DELETE'])
+@app.route('/vehicles/<license_plate>', methods=['DELETE'])
 def delete_vehicle(license_plate):
     with driver.session() as session:
         result = session.run(
@@ -212,7 +212,7 @@ def delete_vehicle(license_plate):
         else:
             return jsonify({"error": "Vehicle not found"}), 404
     
-@app.route('/resources/couriers/<courier_id>', methods=['DELETE'])
+@app.route('/couriers/<courier_id>', methods=['DELETE'])
 def delete_courier(courier_id):
     with driver.session() as session:
         result = session.run(
