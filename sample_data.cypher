@@ -97,3 +97,5 @@ CREATE (c9)-[:PLACED_ORDER]->(del9);
 CREATE (d1)-[:ASSIGNED_TO]->(del9);
 CREATE (del9)-[:CONTAINS_PRODUCT]->(p3);
 CREATE (d1)-[:USES_VEHICLE]->(v1);
+
+CREATE (del10:Delivery {id: 'del-11' 

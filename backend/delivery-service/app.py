@@ -496,7 +496,7 @@ def propose_couriers(delivery_id):
             return jsonify({"error": "Delivery not found"}), 404
 
         result = session.run(
-            "MATCH (u:User) WHERE u.account_type IN ['courier','delivery'] AND COALESCE(u.aktivan, true)=true "
+            "MATCH (u:User) WHERE u.account_type IN ['courier','delivery'] AND COALESCE(u.is_active, true)=true "
             "AND NOT (u)-[:ASSIGNED_TO]->(:Delivery) RETURN u LIMIT 5"
         )
         candidates = []
