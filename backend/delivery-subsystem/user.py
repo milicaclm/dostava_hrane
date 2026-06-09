@@ -1,14 +1,10 @@
 #servis za upravljanje nalozima
-
 import uuid
-from flask import Flask, jsonify, request
+from flask import Blueprint, jsonify, request
 from neo4j import GraphDatabase
-from flask_jwt_extended import JWTManager, create_access_token
+from flask_jwt_extended import create_access_token
 
-app = Flask(__name__)
-# configure JWT
-app.config['JWT_SECRET_KEY'] = 'dev-secret-key'
-JWTManager(app)
+user_bp = Blueprint('user', __name__)
 
 
 
@@ -24,7 +20,7 @@ except Exception:
 
 
 
-@app.route('/')
+@user_bp.route('/')
 def get_users():
     with driver.session() as session:
         result = session.run("MATCH (u:User) RETURN u")
@@ -43,7 +39,7 @@ def get_users():
             })
     return jsonify(users)
 
-@app.route('/<user_id>')
+@user_bp.route('/<user_id>')
 def get_user(user_id):
     with driver.session() as session:
         result = session.run("MATCH (u:User {id: $user_id}) RETURN u", user_id=user_id)
@@ -65,7 +61,7 @@ def get_user(user_id):
         
 
 
-@app.route('/<user_id>', methods=['PUT'])
+@user_bp.route('/<user_id>', methods=['PUT'])
 def update_user(user_id):
     data = request.get_json()
     with driver.session() as session:
@@ -96,7 +92,7 @@ def update_user(user_id):
         else:
             return jsonify({"error": "User not found"}), 404
 
-@app.route('/<user_id>', methods=['DELETE'])
+@user_bp.route('/<user_id>', methods=['DELETE'])
 def delete_user(user_id):
     with driver.session() as session:
         result = session.run("MATCH (u:User {id: $user_id}) DELETE u RETURN COUNT(u) AS deleted_count", user_id=user_id)
@@ -106,11 +102,9 @@ def delete_user(user_id):
         else:
             return jsonify({"error": "User not found"}), 404
         
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
 
 
-@app.route('/login', methods=['POST'])
+@user_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
     email = data.get('email')
@@ -126,7 +120,7 @@ def login():
         else:
             return jsonify({"error": "Invalid email or password"}), 401
         
-@app.route('/register', methods=['POST'])
+@user_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
     with driver.session() as session:

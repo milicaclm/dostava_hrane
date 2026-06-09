@@ -50,120 +50,46 @@ services:
       - REDIS_HOST=redisdb
       - REDIS_PORT=6379
 
-  user-service:
-    build: ./backend/user-service
+  delivery-subsystem:
+    build: ./backend/delivery-subsystem
     restart: on-failure
     volumes:
-      - ./backend/user-service:/app
+      - ./backend/delivery-subsystem:/app
       - ./backend/model.py:/dostava/model.py
-    ports:
-      - "8081:8080"
-    environment:
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USERNAME=neo4j
-      - NEO4J_PASSWORD=password
-      - FLASK_APP=app.py
-      - FLASK_DEBUG=1
-    command: flask run --host=0.0.0.0 --port=8080
-    depends_on:
-      - neo4j
-
-  resource-service:
-    build: ./backend/resource-service
-    restart: on-failure
-    volumes:
-      - ./backend/resource-service:/app
-      - ./backend/model.py:/dostava/model.py
-    ports:
-      - "8082:8080"
-    environment:
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USERNAME=neo4j
-      - NEO4J_PASSWORD=password
-      - FLASK_APP=app.py
-      - FLASK_DEBUG=1
-    command: flask run --host=0.0.0.0 --port=8080
-    depends_on:
-      - neo4j
-
-  delivery-service:
-    build: ./backend/delivery-service
-    restart: on-failure
-    volumes:
-      - ./backend/delivery-service:/app
-      - ./backend/model.py:/dostava/model.py
-    ports:
-      - "8083:8080"
-    environment:
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USERNAME=neo4j
-      - NEO4J_PASSWORD=password
-      - REDIS_HOST=redisdb
-      - REDIS_PORT=6379
-      - FLASK_APP=app.py
-      - FLASK_DEBUG=1
-    command: flask run --host=0.0.0.0 --port=8080
-    depends_on:
-      - neo4j
-      - redisdb
-
-  location-service:
-    build: ./backend/location-service
-    restart: on-failure
-    volumes:
-      - ./backend/location-service:/app
-    ports:
-      - "8084:8080"
-    environment:
-      - INFLUXDB_URL=http://influxdb2:8086
-      - INFLUXDB_USERNAME=admin
-      - INFLUXDB_PASSWORD=superpassword
-      - INFLUXDB_TOKEN=mytoken123
-      - INFLUXDB_ORG=docs
-      - INFLUXDB_BUCKET=geo_data
-      - REDIS_HOST=redisdb
-      - REDIS_PORT=6379
-      - FLASK_APP=app.py
-      - FLASK_DEBUG=1
-    command: flask run --host=0.0.0.0 --port=8080
-    depends_on:
-      - influxdb2
-      - redisdb
-
-  analitics-service:
-    build: ./backend/analitics-service
-    restart: on-failure
-    volumes:
-      - ./backend/analitics-service:/app
-    ports:
-      - "8085:8080"
-    environment:
-      - INFLUXDB_URL=http://influxdb2:8086
-      - INFLUXDB_TOKEN=mytoken123
-      - INFLUXDB_USERNAME=admin
-      - INFLUXDB_PASSWORD=superpassword
-      - INFLUXDB_ORG=docs
-      - INFLUXDB_BUCKET=geo_data
-      - FLASK_APP=app.py
-      - FLASK_DEBUG=1
-    command: flask run --host=0.0.0.0 --port=8080
-    depends_on:
-      - influxdb2
-
-  gateway:
-    build: ./backend/gateway
-    restart: on-failure
-    volumes:
-      - ./backend/gateway:/app
     ports:
       - "8080:8080"
     environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=password
+      - REDIS_HOST=redisdb
+      - REDIS_PORT=6379
+      - INFLUXDB_URL=http://influxdb2:8086
+      - INFLUXDB_USERNAME=admin
+      - INFLUXDB_PASSWORD=superpassword
+      - INFLUXDB_TOKEN=mytoken123
+      - INFLUXDB_ORG=docs
+      - INFLUXDB_BUCKET=geo_data
+      - INTERNAL_API_URL=http://localhost:8080
       - FLASK_APP=app.py
       - FLASK_DEBUG=1
     command: flask run --host=0.0.0.0 --port=8080
     depends_on:
-      - user-service
-      - resource-service
-      - delivery-service
-      - location-service
-      - analitics-service
+      - neo4j
+      - influxdb2
+      - redisdb
+      - redis-insight
+
+  gateway:
+    build: ./gateway
+    restart: on-failure
+    volumes:
+      - ./gateway:/app
+    ports:
+      - "8000:8080"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_DEBUG=1
+    command: flask run --host=0.0.0.0 --port=8080
+    depends_on:
+      - delivery-subsystem

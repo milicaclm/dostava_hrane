@@ -1,10 +1,10 @@
 #servis za dostave
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify
 import os
 import requests
 from redis import Redis
 from neo4j import GraphDatabase
-app = Flask(__name__)
+delivery_bp = Blueprint('delivery', __name__)
 
 driver = GraphDatabase.driver("bolt://neo4j:7687", auth=("neo4j", "password"))
 
@@ -13,6 +13,8 @@ redis_client = Redis(
     port=int(os.environ.get("REDIS_PORT", 6379)),
     decode_responses=True
 )
+
+INTERNAL_API_URL = os.environ.get("INTERNAL_API_URL", "http://localhost:8080")
 
 # helper to stringify Neo4j DateTime objects for JSON
 def _fmt_dt(v):
@@ -24,7 +26,7 @@ def _fmt_dt(v):
         return None
 
 
-@app.route('/')
+@delivery_bp.route('/')
 def get_deliveries():
     with driver.session() as session:
         result = session.run("MATCH (d:Delivery) RETURN d")
@@ -40,7 +42,7 @@ def get_deliveries():
             })
     return jsonify(deliveries)
     
-@app.route('/<delivery_id>')
+@delivery_bp.route('/<delivery_id>')
 def get_delivery(delivery_id):
     with driver.session() as session:
         result = session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id)
@@ -59,7 +61,7 @@ def get_delivery(delivery_id):
             return jsonify({"error": "Delivery not found"}), 404
 
 # -----------------------Pravljenje porudžbine-----------------------------------------
-@app.route('/', methods=['POST'])
+@delivery_bp.route('/', methods=['POST'])
 def create_delivery():
     data = request.get_json()
     with driver.session() as session:
@@ -73,7 +75,7 @@ def create_delivery():
         )
     return jsonify({"message": "Delivery created successfully"}), 201
 
-@app.route('/<delivery_id>', methods=['PUT'])
+@delivery_bp.route('/<delivery_id>', methods=['PUT'])
 def update_delivery(delivery_id):
     data = request.get_json()
     with driver.session() as session:
@@ -102,7 +104,7 @@ def update_delivery(delivery_id):
             return jsonify({"error": "Delivery not found"}), 404
         
 
-@app.route('/<delivery_id>', methods=['DELETE'])
+@delivery_bp.route('/<delivery_id>', methods=['DELETE'])
 def delete_delivery(delivery_id):
     with driver.session() as session:
         result = session.run("MATCH (d:Delivery {id: $delivery_id}) DETACH DELETE d RETURN COUNT(d) AS deleted_count", delivery_id=delivery_id)
@@ -113,7 +115,7 @@ def delete_delivery(delivery_id):
             return jsonify({"error": "Delivery not found"}), 404
         
 
-@app.route('/<delivery_id>/products', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/products', methods=['POST'])
 def add_product_to_delivery(delivery_id):
     data = request.get_json()
     product_id = data["product_id"]
@@ -147,7 +149,7 @@ def add_product_to_delivery(delivery_id):
         else:
             return jsonify({"error": "Delivery or Product not found"}), 404
         
-@app.route('/<delivery_id>/products/<product_id>', methods=['DELETE'])
+@delivery_bp.route('/<delivery_id>/products/<product_id>', methods=['DELETE'])
 def remove_product_from_delivery(delivery_id, product_id):
     with driver.session() as session:
         result = session.run(
@@ -162,7 +164,7 @@ def remove_product_from_delivery(delivery_id, product_id):
         else:
             return jsonify({"error": "Delivery or Product not found"}), 404
         
-@app.route('/<delivery_id>/products', methods=['GET'])
+@delivery_bp.route('/<delivery_id>/products', methods=['GET'])
 def get_delivery_products(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -182,7 +184,7 @@ def get_delivery_products(delivery_id):
     return jsonify({"products": products})
 
 
-@app.route('/<delivery_id>/placed_by/<customer_id>', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['POST'])
 def create_placed_order(delivery_id, customer_id):
     with driver.session() as session:
         # verify delivery
@@ -200,7 +202,7 @@ def create_placed_order(delivery_id, customer_id):
         return jsonify({"message": "Placed order relation created"}), 201
 
 
-@app.route('/customers/<customer_id>/deliveries')
+@delivery_bp.route('/customers/<customer_id>/deliveries')
 def list_customer_deliveries(customer_id):
     with driver.session() as session:
         result = session.run(
@@ -220,7 +222,7 @@ def list_customer_deliveries(customer_id):
     return jsonify({"deliveries": deliveries})
 
 
-@app.route('/<delivery_id>/placed_by/<customer_id>', methods=['DELETE'])
+@delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['DELETE'])
 def delete_placed_order(delivery_id, customer_id):
     with driver.session() as session:
         res = session.run(
@@ -233,7 +235,7 @@ def delete_placed_order(delivery_id, customer_id):
         return jsonify({"error": "Placed order relation not found"}), 404
     
 
-@app.route('/deliveries/<delivery_id>/placed_by/<customer_id>', methods=['PUT'])
+@delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['PUT'])
 def update_placed_order(delivery_id, customer_id):
     data = request.get_json()
     with driver.session() as session:
@@ -258,7 +260,7 @@ def update_placed_order(delivery_id, customer_id):
 
 #------------------------------------------------------------------------------------------
 
-@app.route('/<delivery_id>/assign_courier/<courier_id>', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/assign_courier/<courier_id>', methods=['POST'])
 def assign_courier(delivery_id, courier_id):
     with driver.session() as session:
 
@@ -300,7 +302,7 @@ def assign_courier(delivery_id, courier_id):
 
 
 #TODO: Treba da bude kompleksna funkcionalnost!
-@app.route('/users/<user_id>/assign_vehicle/<license_plate>', methods=['POST'])
+@delivery_bp.route('/users/<user_id>/assign_vehicle/<license_plate>', methods=['POST'])
 def assign_vehicle(user_id, license_plate):
     with driver.session() as session:
         user_rec = session.run(
@@ -344,7 +346,7 @@ def assign_vehicle(user_id, license_plate):
         return jsonify({"error": "Could not assign vehicle"}), 500
 
 
-@app.route('/<delivery_id>/courier', methods=['GET'])
+@delivery_bp.route('/<delivery_id>/courier', methods=['GET'])
 def get_assigned_courier(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -367,7 +369,7 @@ def get_assigned_courier(delivery_id):
         else:
             return jsonify({"error": "Assigned courier not found"}), 404
 
-@app.route('/<delivery_id>/vehicle', methods=['GET'])
+@delivery_bp.route('/<delivery_id>/vehicle', methods=['GET'])
 def get_assigned_vehicle(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -389,7 +391,7 @@ def get_assigned_vehicle(delivery_id):
 
 
 #delete assigned to and uses vehicle
-@app.route('/deliveries/<delivery_id>/unassign_courier', methods=['DELETE'])
+@delivery_bp.route('/<delivery_id>/unassign_courier', methods=['DELETE'])
 def unassign_courier(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -403,7 +405,7 @@ def unassign_courier(delivery_id):
         else:
             return jsonify({"error": "Assigned courier not found"}), 404
 
-@app.route('/deliveries/<delivery_id>/unassign_vehicle', methods=['DELETE'])
+@delivery_bp.route('/<delivery_id>/unassign_vehicle', methods=['DELETE'])
 def unassign_vehicle(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -424,7 +426,7 @@ def unassign_vehicle(delivery_id):
 
 
 
-@app.route('/deliveries/<delivery_id>/complete', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/complete', methods=['POST'])
 def complete_delivery(delivery_id):
     """Mark delivery delivered and record vehicle history (IstorijaVozila).
     Expects JSON: {"courier_id": "...", "license_plate": "...", "note": "optional"}
@@ -451,7 +453,8 @@ def complete_delivery(delivery_id):
                 import traceback
                 traceback.print_exc()
             try:
-                requests.post("http://location-service:8080/stop", json={"user_id": courier_id}, timeout=2)
+                # Sada je putanja /locations/stop jer je location_bp registrovan na /locations
+                requests.post(f"{INTERNAL_API_URL}/locations/stop", json={"user_id": courier_id}, timeout=2)
             except Exception:
                 import traceback
                 traceback.print_exc()
@@ -461,7 +464,7 @@ def complete_delivery(delivery_id):
     return jsonify({"status": "completed", "delivery_id": delivery_id}), 200
 
 
-@app.route('/deliveries/<delivery_id>/history', methods=['GET'])
+@delivery_bp.route('/<delivery_id>/history', methods=['GET'])
 def get_delivery_history(delivery_id):
     with driver.session() as session:
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
@@ -485,7 +488,7 @@ def get_delivery_history(delivery_id):
 
 
 # --- Offer / suggestion workflow ---
-@app.route('/deliveries/<delivery_id>/propose_couriers', methods=['GET'])
+@delivery_bp.route('/<delivery_id>/propose_couriers', methods=['GET'])
 def propose_couriers(delivery_id):
     """Return candidate couriers for a delivery (simple heuristic).
     Currently returns couriers with account_type 'courier' who are active and not currently assigned.
@@ -511,7 +514,7 @@ def propose_couriers(delivery_id):
     return jsonify({'candidates': candidates})
 
 
-@app.route('/deliveries/<delivery_id>/offer/<courier_id>', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/offer/<courier_id>', methods=['POST'])
 def offer_delivery_to_courier(delivery_id, courier_id):
     """Create an OFFER relationship from system to courier for this delivery."""
     with driver.session() as session:
@@ -529,7 +532,7 @@ def offer_delivery_to_courier(delivery_id, courier_id):
     return jsonify({'message': 'Offer created'}), 201
 
 
-@app.route('/deliveries/<delivery_id>/accept', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/accept', methods=['POST'])
 def accept_offer(delivery_id):
     data = request.get_json(force=True)
     user_id = data.get('user_id') or data.get('courier_id')
@@ -581,7 +584,7 @@ def accept_offer(delivery_id):
 
         try:
             loc_payload = {"user_id": user_id, "delivery_id": delivery_id, "delivery_status": "accepted"}
-            requests.post("http://location-service:8080/start", json=loc_payload, timeout=2)
+            requests.post(f"{INTERNAL_API_URL}/locations/start", json=loc_payload, timeout=2)
         except Exception:
             import traceback
             traceback.print_exc()
@@ -589,7 +592,7 @@ def accept_offer(delivery_id):
     return jsonify({'message': 'Delivery accepted and assigned'}), 200
 
 
-@app.route('/deliveries/<delivery_id>/reject', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/reject', methods=['POST'])
 def reject_offer(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
@@ -605,7 +608,7 @@ def reject_offer(delivery_id):
 
 
 # Courier actions: pickup, deliver, cancel
-@app.route('/deliveries/<delivery_id>/pickup', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/pickup', methods=['POST'])
 def courier_pickup(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
@@ -625,7 +628,7 @@ def courier_pickup(delivery_id):
     return jsonify({'message': 'Pickup recorded'}), 200
 
 
-@app.route('/deliveries/<delivery_id>/deliver', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/deliver', methods=['POST'])
 def courier_deliver(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
@@ -643,7 +646,7 @@ def courier_deliver(delivery_id):
             import traceback
             traceback.print_exc()
         try:
-            requests.post("http://location-service:8080/stop", json={"user_id": courier_id}, timeout=2)
+            requests.post(f"{INTERNAL_API_URL}/locations/stop", json={"user_id": courier_id}, timeout=2)
         except Exception:
             import traceback
             traceback.print_exc()
@@ -651,7 +654,7 @@ def courier_deliver(delivery_id):
     return jsonify({'message': 'Delivery marked as completed'}), 200
 
 
-@app.route('/deliveries/<delivery_id>/cancel', methods=['POST'])
+@delivery_bp.route('/<delivery_id>/cancel', methods=['POST'])
 def courier_cancel(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
@@ -668,14 +671,10 @@ def courier_cancel(delivery_id):
             import traceback
             traceback.print_exc()
         try:
-            requests.post("http://location-service:8080/stop", json={"user_id": courier_id}, timeout=2)
+                requests.post(f"{INTERNAL_API_URL}/locations/stop", json={"user_id": courier_id}, timeout=2)
         except Exception:
             import traceback
             traceback.print_exc()
         # remove assignment
         session.run("MATCH (u:User {id: $courier_id})-[r:ASSIGNED_TO]->(d:Delivery {id: $delivery_id}) DELETE r", courier_id=courier_id, delivery_id=delivery_id)
     return jsonify({'message': 'Delivery cancelled by courier'}), 200
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)

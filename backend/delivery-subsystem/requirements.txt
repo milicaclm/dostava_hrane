@@ -1,0 +1,8 @@
+Flask==3.0.1
+influxdb-client
+redis
+neo4j
+requests==2.31.0
+Flask-JWT-Extended
+PyJWT
+gunicorn==21.2.0

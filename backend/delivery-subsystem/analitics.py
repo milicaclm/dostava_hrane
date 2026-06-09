@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify
 import os
 from influxdb_client import InfluxDBClient
 
-app = Flask(__name__)
+analitics_bp = Blueprint('analitics', __name__)
+
 
 # InfluxDB configuration via env
 influx_url = os.environ.get('INFLUXDB_URL', 'http://localhost:8086')
@@ -16,15 +17,17 @@ write_api = client.write_api()
 
 
 
-@app.route('/health', methods=['GET'])
+@analitics_bp.route('/health', methods=['GET'])
 def health():
 	return jsonify(status='ok')
 
 
-@app.route('/efficiency', methods=['GET'])
+@analitics_bp.route('/efficiency', methods=['GET'])
 def analiza_efikasnosti():
-	data = request.get_json()
+	data = request.get_json() or {}
 	user_id = data.get('user_id')
+	if not user_id:
+		return jsonify({"error": "user_id is required"}), 400
 	delivery_id = data.get('delivery_id')
 	query = f'''from(bucket: "{influx_bucket}")
   |> range(start: -1h)
@@ -34,10 +37,14 @@ def analiza_efikasnosti():
   |> elapsed(unit: 1s, timeColumn: "_time", columnName: "trajanje_dostave")
   |> filter(fn: (r) => exists r.trajanje_dostave)
   |> group(columns: ["status"])
-  |>mean(column: "trajanje_dostave")'''
+  |> mean(column: "trajanje_dostave")'''
 
-
-
-if __name__ == '__main__':
-	port = int(os.environ.get('PORT', 8080))
-	app.run(host='0.0.0.0', port=port)
+	try:
+		tables = client.query_api().query(query, org=influx_org)
+		res = []
+		for table in tables:
+			for record in table.records:
+				res.append({"status": record.values.get("status"), "average_duration": record.get_value()})
+		return jsonify(res)
+	except Exception as e:
+		return jsonify({"error": str(e)}), 500

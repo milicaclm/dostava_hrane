@@ -1,20 +1,20 @@
 #servis za menadžment resursima
 
-from flask import Flask, jsonify, request
+from flask import Blueprint, jsonify, request
 from neo4j import GraphDatabase
 
-app = Flask(__name__)
+resource_bp = Blueprint('resource', __name__)
 
 
 
 
 driver = GraphDatabase.driver("bolt://neo4j:7687", auth=("neo4j", "password"))
 
-@app.route('/')
+@resource_bp.route('/')
 def hello():
     return "Hello, Resource Service!"
 
-@app.route('/vehicles')
+@resource_bp.route('/vehicles')
 def get_vehicles():
     with driver.session() as session:
         result = session.run("MATCH (v:Vehicle) RETURN v")
@@ -28,7 +28,7 @@ def get_vehicles():
             })
     return {"vehicles": vehicles}
 
-@app.route('/products')
+@resource_bp.route('/products')
 def get_products():
     with driver.session() as session:
         result = session.run("MATCH (p:Product) RETURN p")
@@ -43,7 +43,7 @@ def get_products():
             })
     return {"products": products}
 
-@app.route('/couriers')
+@resource_bp.route('/couriers')
 def get_couriers():
     with driver.session() as session:
         result = session.run("MATCH (u:User {account_type: 'courier'}) RETURN u")
@@ -61,7 +61,7 @@ def get_couriers():
     return {"couriers": couriers}
 
         
-@app.route('/couriers/<courier_id>/update', methods=['PUT'])
+@resource_bp.route('/couriers/<courier_id>/update', methods=['PUT'])
 def update_courier(courier_id):
     data = request.get_json()
     with driver.session() as session:
@@ -91,7 +91,7 @@ def update_courier(courier_id):
         else:
             return jsonify({"error": "Courier not found"}), 404
         
-@app.route('/vehicles/<license_plate>/update', methods=['PUT'])
+@resource_bp.route('/vehicles/<license_plate>/update', methods=['PUT'])
 def update_vehicle(license_plate):
     data = request.get_json()
     with driver.session() as session:
@@ -115,7 +115,7 @@ def update_vehicle(license_plate):
         else:
             return jsonify({"error": "Vehicle not found"}), 404
         
-@app.route('/products/<product_id>/update', methods=['PUT'])
+@resource_bp.route('/products/<product_id>/update', methods=['PUT'])
 def update_product(product_id):
     data = request.get_json()
     with driver.session() as session:
@@ -143,7 +143,7 @@ def update_product(product_id):
         
 # create
 
-@app.route('/products', methods=['POST'])
+@resource_bp.route('/products', methods=['POST'])
 def create_product():
     data = request.get_json()
     with driver.session() as session:
@@ -156,7 +156,7 @@ def create_product():
         )
     return jsonify({"message": "Product created successfully"}), 201
 
-@app.route('/vehicles', methods=['POST'])
+@resource_bp.route('/vehicles', methods=['POST'])
 def create_vehicle():
     data = request.get_json()
     with driver.session() as session:
@@ -168,7 +168,7 @@ def create_vehicle():
         )
     return jsonify({"message": "Vehicle created successfully"}), 201
 
-@app.route('/couriers', methods=['POST'])
+@resource_bp.route('/couriers', methods=['POST'])
 def create_courier():
     data = request.get_json()
     with driver.session() as session:
@@ -186,7 +186,7 @@ def create_courier():
 
 # delete
 
-@app.route('/products/<product_id>', methods=['DELETE'])
+@resource_bp.route('/products/<product_id>', methods=['DELETE'])
 def delete_product(product_id):
     with driver.session() as session:
         result = session.run(
@@ -199,7 +199,7 @@ def delete_product(product_id):
         else:
             return jsonify({"error": "Product not found"}), 404
     
-@app.route('/vehicles/<license_plate>', methods=['DELETE'])
+@resource_bp.route('/vehicles/<license_plate>', methods=['DELETE'])
 def delete_vehicle(license_plate):
     with driver.session() as session:
         result = session.run(
@@ -212,7 +212,7 @@ def delete_vehicle(license_plate):
         else:
             return jsonify({"error": "Vehicle not found"}), 404
     
-@app.route('/couriers/<courier_id>', methods=['DELETE'])
+@resource_bp.route('/couriers/<courier_id>', methods=['DELETE'])
 def delete_courier(courier_id):
     with driver.session() as session:
         result = session.run(
@@ -225,7 +225,3 @@ def delete_courier(courier_id):
         else:
             return jsonify({"error": "Courier not found"}), 404
         
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)

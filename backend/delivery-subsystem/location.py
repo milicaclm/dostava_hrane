@@ -1,7 +1,7 @@
 
 from datetime import datetime
 import os
-from flask import Flask, jsonify, request
+from flask import Blueprint, jsonify, request
 import requests
 import jwt
 from redis import Redis
@@ -17,7 +17,7 @@ lock = threading.Lock()
 # Pratimo pokrenute niti u memoriji kako bismo izbegli dupliranje
 active_threads = {}
 
-app = Flask(__name__)
+location_bp = Blueprint('location', __name__)
 
 redis_client = Redis(
     host=os.environ.get("REDIS_HOST", "localhost"),
@@ -36,13 +36,15 @@ write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 query_api = influx_client.query_api()
 delete_api = influx_client.delete_api()
 
+# Koristi se za interne pozive ka drugim modulima (npr. provera korisnika)
+INTERNAL_API_URL = os.environ.get("INTERNAL_API_URL", "http://localhost:8080")
 
-@app.route("/health", methods=["GET"])
+@location_bp.route("/health", methods=["GET"])
 def health():
     return jsonify(status="ok"), 200
 
 
-@app.route("/add_position", methods=["POST"])
+@location_bp.route("/add_position", methods=["POST"])
 def create_position_point():
     data = request.get_json()
     user_id = request.args.get("user_id") or data.get("user_id")
@@ -66,7 +68,7 @@ def create_position_point():
         return jsonify({"error": str(e)}), 500
 
 #format vremena: 2024-06-01T12:00:00Z [YYYY-MM-DD'T'HH:MM:SS'Z']
-@app.route("/delete_positions", methods=["DELETE"])
+@location_bp.route("/delete_positions", methods=["DELETE"])
 def delete_position_points():
     data = request.get_json()
     user_id = request.args.get("user_id")
@@ -91,7 +93,7 @@ def delete_position_points():
         return jsonify({"status": "error"}), 500
 
 
-@app.route("/set_position", methods=["POST"])
+@location_bp.route("/set_position", methods=["POST"])
 def set_position():
     """korisnik zadaje noviju vrednost kada zeli"""
     data = request.get_json()
@@ -161,7 +163,7 @@ def tracking_loop(user_id):
 
 
 
-@app.route("/start", methods=["POST"])
+@location_bp.route("/start", methods=["POST"])
 def start_tracking():
     data = request.get_json() or {}
     # accept user_id from query or JSON body
@@ -174,9 +176,10 @@ def start_tracking():
     if not user_id:
         return jsonify({"status": "error", "message": "user_id is required"}), 400
 
-    # verify user exists and is active via user-service
+    # Provera korisnika unutar istog subsystema
     try:
-        resp = requests.get(f"http://user-service:8080/{user_id}", timeout=3)
+        # Putanja mora odgovarati prefiksu registrovanom u app.py (/users)
+        resp = requests.get(f"{INTERNAL_API_URL}/users/{user_id}", timeout=3)
         if resp.status_code != 200:
             return jsonify({"status": "error", "message": "user not found or not active"}), 404
     except requests.RequestException:
@@ -213,7 +216,7 @@ def start_tracking():
     return jsonify({"status": "started"}), 200
 
 
-@app.route("/stop", methods=["POST"])
+@location_bp.route("/stop", methods=["POST"])
 def stop_tracking():
     data = request.get_json() or {}
     user_id = data.get('user_id') or request.args.get('user_id')
@@ -221,7 +224,3 @@ def stop_tracking():
         redis_client.set(f"tracking:{user_id}", "false")
         return jsonify({"status": "stopped", "user_id": user_id}), 200
     return jsonify({"error": "user_id required"}), 400
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
