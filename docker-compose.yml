@@ -51,11 +51,11 @@ services:
       - REDIS_PORT=6379
 
   delivery-subsystem:
-    build: ./backend/delivery-subsystem
+    build: ./application/delivery-subsystem
     restart: on-failure
     volumes:
-      - ./backend/delivery-subsystem:/app
-      - ./backend/model.py:/dostava/model.py
+      - ./application/delivery-subsystem:/app
+      - ./application/model.py:/dostava/model.py
     ports:
       - "8080:8080"
     environment:
