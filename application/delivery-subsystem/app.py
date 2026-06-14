@@ -39,9 +39,6 @@ influx_client = InfluxDBClient(
 def hello():
     return jsonify({"status": "Delivery Subsystem is running"}), 200
 
-# Ovde možete uvesti rute iz drugih fajlova koristeći Blueprints
-# ili jednostavno prebaciti funkcije iz delivery.py i location.py ovde.
-# Za početak, registrujmo blueprint ako ste ga definisali u routes.py:
 
 app.register_blueprint(delivery_bp, url_prefix='/deliveries')
 app.register_blueprint(location_bp, url_prefix='/locations')
