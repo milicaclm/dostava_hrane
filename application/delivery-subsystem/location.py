@@ -3,7 +3,6 @@ from datetime import datetime
 import os
 from flask import Blueprint, jsonify, request
 import requests
-import jwt
 from redis import Redis
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
@@ -64,6 +63,29 @@ def create_position_point():
     try:
         write_api.write(bucket=influx_bucket, org=influx_org, record=point)
         return jsonify({"status": "position added"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@location_bp.route("/get_positions", methods=["GET"])
+def get_positions():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+    
+    query = f'''
+        from(bucket: "{influx_bucket}")
+        |> range(start: -24h)
+        |> filter(fn: (r) => r["_measurement"] == "geo_position")
+        |> filter(fn: (r) => r["user_id"] == "{user_id}")
+        |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+    '''
+    try:
+        result = query_api.query(org=influx_org, query=query)
+        output = []
+        for table in result:
+            for record in table.records:
+                output.append(record.values)
+        return jsonify(output), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

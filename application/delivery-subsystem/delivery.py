@@ -6,7 +6,10 @@ from redis import Redis
 from neo4j import GraphDatabase
 delivery_bp = Blueprint('delivery', __name__)
 
-driver = GraphDatabase.driver("bolt://neo4j:7687", auth=("neo4j", "password"))
+driver = GraphDatabase.driver(
+    os.environ.get("NEO4J_URI", "bolt://neo4j:7687"), 
+    auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
+)
 
 redis_client = Redis(
     host=os.environ.get("REDIS_HOST", "localhost"),
@@ -38,6 +41,10 @@ def get_deliveries():
                 "status": delivery_node["status"],
                 "from_location": delivery_node["from_location"],
                 "to_location": delivery_node["to_location"],
+                "start_time": _fmt_dt(delivery_node.get("start_time")),
+                "pickup_time": _fmt_dt(delivery_node.get("pickup_time")),
+                "delivery_time": _fmt_dt(delivery_node.get("delivery_time")),
+                "rating": delivery_node.get("rating"),
                 "order_time": _fmt_dt(delivery_node.get("order_time"))
             })
     return jsonify(deliveries)
@@ -54,7 +61,11 @@ def get_delivery(delivery_id):
                 "status": delivery_node["status"],
                 "from_location": delivery_node["from_location"],
                 "to_location": delivery_node["to_location"],
-                "order_time": _fmt_dt(delivery_node.get("order_time"))
+                "order_time": _fmt_dt(delivery_node.get("order_time")),
+                "start_time": _fmt_dt(delivery_node.get("start_time")),
+                "pickup_time": _fmt_dt(delivery_node.get("pickup_time")),
+                "delivery_time": _fmt_dt(delivery_node.get("delivery_time")),
+                "rating": delivery_node.get("rating")
             }
             return jsonify(delivery)
         else:
@@ -66,12 +77,16 @@ def create_delivery():
     data = request.get_json()
     with driver.session() as session:
         session.run(
-            "CREATE (d:Delivery {id: $id, status: $status, from_location: $from_location, to_location: $to_location, order_time: $order_time})",
+            "CREATE (d:Delivery {id: $id, status: $status, from_location: $from_location, "
+            "to_location: $to_location, order_time: datetime($order_time), "
+            "start_time: datetime($start_time), rating: $rating})",
             id=data["id"],
             status=data["status"],
             from_location=data["from_location"],
             to_location=data["to_location"],
-            order_time=data["order_time"]
+            order_time=data["order_time"],
+            start_time=data.get("start_time"),
+            rating=data.get("rating", 0)
         )
     return jsonify({"message": "Delivery created successfully"}), 201
 
@@ -81,13 +96,16 @@ def update_delivery(delivery_id):
     with driver.session() as session:
         result = session.run(
             "MATCH (d:Delivery {id: $delivery_id}) "
-            "SET d.status = $status, d.from_location = $from_location, d.to_location = $to_location, d.order_time = $order_time "
+            "SET d.status = $status, d.from_location = $from_location, d.to_location = $to_location, "
+            "d.rating = $rating, d.start_time = datetime($start_time), d.order_time = datetime($order_time) "
             "RETURN d",
             delivery_id=delivery_id,
             status=data["status"],
             from_location=data["from_location"],
             to_location=data["to_location"],
-            order_time=data["order_time"]
+            order_time=data.get("order_time"),
+            rating=data.get("rating"),
+            start_time=data.get("start_time")
         )
         record = result.single()
         if record:
@@ -97,7 +115,11 @@ def update_delivery(delivery_id):
                 "status": delivery_node["status"],
                 "from_location": delivery_node["from_location"],
                 "to_location": delivery_node["to_location"],
-                "order_time": _fmt_dt(delivery_node.get("order_time"))
+                "order_time": _fmt_dt(delivery_node.get("order_time")),
+                "start_time": _fmt_dt(delivery_node.get("start_time")),
+                "pickup_time": _fmt_dt(delivery_node.get("pickup_time")),
+                "delivery_time": _fmt_dt(delivery_node.get("delivery_time")),
+                "rating": delivery_node.get("rating")
             }
             return jsonify(delivery)
         else:
@@ -202,24 +224,7 @@ def create_placed_order(delivery_id, customer_id):
         return jsonify({"message": "Placed order relation created"}), 201
 
 
-@delivery_bp.route('/customers/<customer_id>/deliveries')
-def list_customer_deliveries(customer_id):
-    with driver.session() as session:
-        result = session.run(
-            "MATCH (c:User {id: $customer_id})-[:PLACED_ORDER]->(d:Delivery) RETURN d",
-            customer_id=customer_id
-        )
-        deliveries = []
-        for record in result:
-            d = record['d']
-            deliveries.append({
-                'id': d.get('id'),
-                'status': d.get('status'),
-                'from_location': d.get('from_location'),
-                'to_location': d.get('to_location'),
-                'order_time': _fmt_dt(d.get('order_time'))
-            })
-    return jsonify({"deliveries": deliveries})
+
 
 
 @delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['DELETE'])
@@ -301,49 +306,7 @@ def assign_courier(delivery_id, courier_id):
         return jsonify({"error": "Could not assign courier"}), 500
 
 
-#TODO: Treba da bude kompleksna funkcionalnost!
-@delivery_bp.route('/users/<user_id>/assign_vehicle/<license_plate>', methods=['POST'])
-def assign_vehicle(user_id, license_plate):
-    with driver.session() as session:
-        user_rec = session.run(
-            "MATCH (u:User {id: $user_id}) WHERE u.account_type IN ['courier','delivery'] RETURN u",
-            user_id=user_id
-        ).single()
-        if not user_rec:
-            return jsonify({"error": "User not found or invalid account_type"}), 404
-
-        vehicle_rec = session.run(
-            "MATCH (v:Vehicle {license_plate: $license_plate}) RETURN v",
-            license_plate=license_plate
-        ).single()
-        if not vehicle_rec:
-            return jsonify({"error": "Vehicle not found"}), 404
-
-        cnt = session.run(
-            "MATCH (u:User {id: $user_id})-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) RETURN count(r) AS cnt",
-            user_id=user_id,
-            license_plate=license_plate
-        ).single()["cnt"]
-        if cnt > 0:
-            return jsonify({"message": "Vehicle already assigned to this user"})
-
-        other = session.run(
-            "MATCH (other:User)-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) RETURN other.id AS other_id LIMIT 1",
-            license_plate=license_plate
-        ).single()
-        if other and other.get("other_id") and other.get("other_id") != user_id:
-            return jsonify({"error": "Vehicle already assigned to another user"}), 409
-        
-        res = session.run(
-            "MATCH (u:User {id: $user_id}), (v:Vehicle {license_plate: $license_plate}) CREATE (u)-[:USES_VEHICLE]->(v) RETURN u, v",
-            user_id=user_id,
-            license_plate=license_plate
-        ).single()
-        if res:
-            u = res["u"]
-            v = res["v"]
-            return jsonify({"message": "Vehicle assigned", "user": {"id": u.get("id")}, "vehicle": {"license_plate": v.get("license_plate")}})
-        return jsonify({"error": "Could not assign vehicle"}), 500
+#TODO: Treba da bude kompleksna funkcionalnosti
 
 
 @delivery_bp.route('/<delivery_id>/courier', methods=['GET'])
@@ -433,6 +396,7 @@ def complete_delivery(delivery_id):
     """
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
+    license_plate = data.get('license_plate')
     note = data.get('note')
 
     with driver.session() as session:
@@ -442,7 +406,7 @@ def complete_delivery(delivery_id):
 
         # set delivery status and delivered time (sample_data uses 'completed')
         session.run(
-            "MATCH (d:Delivery {id: $delivery_id}) SET d.status = 'completed', d.time_delivered = datetime() RETURN d",
+            "MATCH (d:Delivery {id: $delivery_id}) SET d.status = 'completed', d.delivery_time = datetime() RETURN d",
             delivery_id=delivery_id
         )
         # if courier is present, update Redis and stop tracking
@@ -459,33 +423,53 @@ def complete_delivery(delivery_id):
                 import traceback
                 traceback.print_exc()
 
-        # vehicle history creation removed (license_plate not required)
+        # Record vehicle history as per ŠBP.puml
+        if courier_id and license_plate:
+            session.run(
+                "MATCH (u:User {id: $courier_id}), (v:Vehicle {license_plate: $license_plate}), (d:Delivery {id: $delivery_id}) "
+                "CREATE (h:VehicleHistory {timestamp: datetime(), note: $note}) "
+                "CREATE (h)-[:FOR_VEHICLE]->(v), (h)-[:FOR_COURIER]->(u), (h)-[:FOR_DELIVERED_ITEM]->(d)",
+                courier_id=courier_id, license_plate=license_plate, delivery_id=delivery_id, note=note
+            )
 
     return jsonify({"status": "completed", "delivery_id": delivery_id}), 200
 
 
 @delivery_bp.route('/<delivery_id>/history', methods=['GET'])
 def get_delivery_history(delivery_id):
+    """Read history for a specific delivery with related IDs."""
     with driver.session() as session:
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
             return jsonify({"error": "Delivery not found"}), 404
 
         result = session.run(
-            "MATCH (h:IstorijaVozila)-[:FOR_DELIVERY]->(d:Delivery {id: $delivery_id})<-[:FOR_DELIVERY]-(h) RETURN h ORDER BY h.ts DESC",
+            "MATCH (u:User)-[:FOR_COURIER]-(h:VehicleHistory)-[:FOR_DELIVERED_ITEM]->(d:Delivery {id: $delivery_id}), "
+            "(h)-[:FOR_VEHICLE]-(v:Vehicle) "
+            "RETURN h, u.id as courier_id, v.license_plate as vehicle_id ORDER BY h.timestamp DESC",
             delivery_id=delivery_id
         )
         history = []
         for record in result:
             h = record['h']
             history.append({
-                'vozilo_id': h.get('vozilo_id'),
-                'dostavljac_id': h.get('dostavljac_id'),
-                'dostava_id': h.get('dostava_id'),
+                'vehicle_id': record['vehicle_id'],
+                'courier_id': record['courier_id'],
+                'delivery_id': delivery_id,
                 'note': h.get('note'),
-                'ts': str(h.get('ts'))
+                'timestamp': str(h.get('timestamp'))
             })
     return jsonify({'history': history})
 
+@delivery_bp.route('/history/<delivery_id>', methods=['DELETE'])
+def delete_delivery_history(delivery_id):
+    """Delete all history records for a specific delivery."""
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (h:VehicleHistory)-[:FOR_DELIVERED_ITEM]->(d:Delivery {id: $delivery_id}) "
+            "DETACH DELETE h RETURN count(h) as deleted_count",
+            delivery_id=delivery_id
+        )
+        return jsonify({"message": "History deleted", "count": result.single()["deleted_count"]}), 200
 
 # --- Offer / suggestion workflow ---
 @delivery_bp.route('/<delivery_id>/propose_couriers', methods=['GET'])
@@ -618,7 +602,7 @@ def courier_pickup(delivery_id):
         # verify assigned
         if not session.run("MATCH (u:User {id: $courier_id})-[:ASSIGNED_TO]->(d:Delivery {id: $delivery_id}) RETURN d", courier_id=courier_id, delivery_id=delivery_id).single():
             return jsonify({'error': 'Not assigned to this courier'}), 403
-        session.run("MATCH (d:Delivery {id: $delivery_id}) SET d.status='in_transit', d.time_preuzimanja = datetime() RETURN d", delivery_id=delivery_id)
+        session.run("MATCH (d:Delivery {id: $delivery_id}) SET d.status='in_transit', d.pickup_time = datetime() RETURN d", delivery_id=delivery_id)
         # update Redis status so location-service writes it into points
         try:
             redis_client.hset(f"pos:{courier_id}", mapping={"delivery_status": "in_transit"})
@@ -638,7 +622,7 @@ def courier_deliver(delivery_id):
         if not session.run("MATCH (u:User {id: $courier_id})-[:ASSIGNED_TO]->(d:Delivery {id: $delivery_id}) RETURN d", courier_id=courier_id, delivery_id=delivery_id).single():
             return jsonify({'error': 'Not assigned to this courier'}), 403
         # mark delivered (sample_data uses 'completed')
-        session.run("MATCH (d:Delivery {id: $delivery_id}) SET d.status='completed', d.time_dostavljanja = datetime() RETURN d", delivery_id=delivery_id)
+        session.run("MATCH (d:Delivery {id: $delivery_id}) SET d.status='completed', d.delivery_time = datetime() RETURN d", delivery_id=delivery_id)
         # update Redis and stop tracking
         try:
             redis_client.hset(f"pos:{courier_id}", mapping={"delivery_status": "completed"})

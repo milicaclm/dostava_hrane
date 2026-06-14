@@ -1,14 +1,14 @@
 #servis za menadžment resursima
-
+import os
 from flask import Blueprint, jsonify, request
 from neo4j import GraphDatabase
 
 resource_bp = Blueprint('resource', __name__)
 
-
-
-
-driver = GraphDatabase.driver("bolt://neo4j:7687", auth=("neo4j", "password"))
+driver = GraphDatabase.driver(
+    os.environ.get("NEO4J_URI", "bolt://neo4j:7687"), 
+    auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
+)
 
 @resource_bp.route('/')
 def hello():
@@ -24,7 +24,12 @@ def get_vehicles():
             vehicles.append({
                 "type": vehicle_node["type"],
                 "license_plate": vehicle_node["license_plate"],
-                "is_ready": vehicle_node["is_ready"]
+                "is_ready": vehicle_node["is_ready"],
+                "brand": vehicle_node.get("brand"),
+                "model": vehicle_node.get("model"),
+                "color": vehicle_node.get("color"),
+                "in_use": vehicle_node.get("in_use"),
+                "description": vehicle_node.get("description")
             })
     return {"vehicles": vehicles}
 
@@ -97,11 +102,17 @@ def update_vehicle(license_plate):
     with driver.session() as session:
         result = session.run(
             "MATCH (v:Vehicle {license_plate: $license_plate}) "
-            "SET v.type = $type, v.is_ready = $is_ready "
+            "SET v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model, "
+            "v.color = $color, v.in_use = $in_use, v.description = $description "
             "RETURN v",
             license_plate=license_plate,
             type=data["type"],
-            is_ready=data["is_ready"]
+            is_ready=data["is_ready"],
+            brand=data.get("brand"),
+            model=data.get("model"),
+            color=data.get("color"),
+            in_use=data.get("in_use"),
+            description=data.get("description")
         )
         record = result.single()
         if record:
@@ -109,7 +120,12 @@ def update_vehicle(license_plate):
             vehicle = {
                 "type": vehicle_node["type"],
                 "license_plate": vehicle_node["license_plate"],
-                "is_ready": vehicle_node["is_ready"]
+                "is_ready": vehicle_node["is_ready"],
+                "brand": vehicle_node.get("brand"),
+                "model": vehicle_node.get("model"),
+                "color": vehicle_node.get("color"),
+                "in_use": vehicle_node.get("in_use"),
+                "description": vehicle_node.get("description")
             }
             return jsonify(vehicle)
         else:
@@ -161,10 +177,16 @@ def create_vehicle():
     data = request.get_json()
     with driver.session() as session:
         session.run(
-            "CREATE (v:Vehicle {type: $type, license_plate: $license_plate, is_ready: $is_ready})",
+            "CREATE (v:Vehicle {type: $type, license_plate: $license_plate, is_ready: $is_ready, "
+            "brand: $brand, model: $model, color: $color, in_use: $in_use, description: $description})",
             type=data["type"],
             license_plate=data["license_plate"],
-            is_ready=data["is_ready"]
+            is_ready=data["is_ready"],
+            brand=data.get("brand"),
+            model=data.get("model"),
+            color=data.get("color"),
+            in_use=data.get("in_use", False),
+            description=data.get("description")
         )
     return jsonify({"message": "Vehicle created successfully"}), 201
 

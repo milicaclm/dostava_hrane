@@ -4,8 +4,10 @@ hide circle
 'skinparam classAttributeIconSize 0
 
 ' =========================
-' KORISNICI
+' ADMINISTRATOR
 ' =========================
+
+package "ADMINISTRATOR" {
 
 class Korisnik {
   + korisnik_id : int <<PK>>
@@ -18,24 +20,21 @@ class Korisnik {
   status_naloga : string
 }
 
-class Narucilac {
-  + korisnik_id : int <<PK, FK>>
-  --
-  adresa_dostave : string
-}
-
-class MenadzerRestorana {
-  + korisnik_id : int <<PK, FK>>
-  + restoran_id : int <<FK>>
-}
-
-class MenadzerDostave {
+class Administrator {
   + korisnik_id: int <<PK,FK>>
 }
 
-class ZaposleniRestorana {
-  + korisnik_id : int <<PK, FK>>
-  + restoran_id : int <<FK>>
+
+}
+
+' =========================
+' DOSTAVA
+' =========================
+
+package "DOSTAVA" {
+
+class MenadzerDostave {
+  + korisnik_id: int <<PK,FK>>
 }
 
 class Dostavljac {
@@ -50,16 +49,129 @@ class Dostavljac {
 }
 
 
-Korisnik <|-- Narucilac
-Korisnik <|-- MenadzerRestorana
-Korisnik <|-- MenadzerDostave
-Korisnik <|-- ZaposleniRestorana
-Korisnik <|-- Dostavljac
+class SimulatorPozicije {
+  + simulator_id : int <<PK>>
+  + dostavljac_id : int <<FK>>
+  --
+  geo_sirina : decimal
+  geo_duzina : decimal
+}
 
 
+
+class Vozilo {
+  + vozilo_id : int <<PK>>
+  + vlasnik_id : int <<FK>>
+  --
+  tip : string
+  model : string
+  marka : string
+  registarska_oznaka : string
+  boja : string
+  spreman : boolean
+  u_upotrebi : boolean
+  opis : string
+  
+}
+
+class IstorijaVozila {
+  + vozilo_id : int <<FK>>
+  + dostavljac_id : int <<FK>>
+  + dostava_id : int <<FK>>
+  
+}
+
+
+
+
+class Dostava {
+  + dostava_id : int <<PK>>
+  + dostavljac_id : int <<FK>>
+  --
+  status : int
+  vreme_pocetka : datetime
+  vreme_preuzimanja : datetime
+  vreme_dostavljanja : datetime
+  ocena : int
+  
+}
+
+}
+
 ' =========================
-' RESTORAN I MENI
+' NARUČIVANJE
 ' =========================
+
+package "NARUCIVANJE" {
+
+class Narucilac {
+  + korisnik_id : int <<PK, FK>>
+  --
+  adresa_dostave : string
+}
+
+
+
+class Porudzbina {
+  + porudzbina_id : int <<PK>>
+  + narucilac_id : int <<FK>>
+  + restoran_id : int <<FK>>
+  + dostava_id : int <<FK>>
+  --
+  status_id : int
+  vrijeme_narucivanja : datetime
+  procijenjeno_vrijeme_pripreme : int
+  vrijeme_spremnosti : datetime
+  adresa_dostave : string
+  napomena_korisnika : string
+  ukupna_cijena_artikala : decimal
+  cijena_dostave : decimal
+  razlog_odbijanja : string
+}
+
+class StavkaPorudzbine {
+  + stavka_id : int <<PK>>
+  + porudzbina_id : int <<FK>>
+  + artikal_id : int <<FK>>
+  --
+  kolicina : int
+  cijena_po_komadu : decimal
+  napomena : string
+}
+
+class AnalizaZarade {
+  + analiza_id : int <<PK>>
+  + restoran_id : int <<FK>>
+  --
+  datum_od : date
+  datum_do : date
+  broj_porudzbina : int
+  ukupna_zarada : decimal
+  zarada_od_specijalnih_ponuda : decimal
+  zarada_od_preporuka : decimal
+}
+
+
+}
+
+' =========================
+' RESTORAN
+' =========================
+
+package "RESTORAN" {
+
+class MenadzerRestorana {
+  + korisnik_id : int <<PK, FK>>
+  + restoran_id : int <<FK>>
+}
+
+class ZaposleniRestorana {
+  + korisnik_id : int <<PK, FK>>
+  + restoran_id : int <<FK>>
+}
+
+
+
 
 class Restoran {
   + restoran_id : int <<PK>>
@@ -106,84 +218,9 @@ class SpecijalnaPonuda {
   aktivna : boolean
 }
 
-Restoran "1" -- "0..*" MenadzerRestorana : ima
-Restoran "1" -- "0..*" ZaposleniRestorana : ima
-Restoran "1" -- "0..*" KategorijaArtikla : ima
-Restoran "1" -- "0..*" Artikal : nudi
-
-KategorijaArtikla "1" -- "0..*" Artikal : sadrzi
-
-Restoran "1" -- "0..*" SpecijalnaPonuda : kreira
-Artikal "0..1" -- "0..*" SpecijalnaPonuda : ima
 
 
-' =========================
-' PORUDZBINE I REKLAMACIJE
-' =========================
 
-class Porudzbina {
-  + porudzbina_id : int <<PK>>
-  + narucilac_id : int <<FK>>
-  + restoran_id : int <<FK>>
-  + dostava_id : int <<FK>>
-  --
-  status_id : int
-  vrijeme_narucivanja : datetime
-  procijenjeno_vrijeme_pripreme : int
-  vrijeme_spremnosti : datetime
-  adresa_dostave : string
-  napomena_korisnika : string
-  ukupna_cijena_artikala : decimal
-  cijena_dostave : decimal
-  razlog_odbijanja : string
-}
-
-class Dostava {
-  + dostava_id : int <<PK>>
-  + dostavljac_id : int <<FK>>
-  --
-  status : int
-  vreme_pocetka : datetime
-  vreme_preuzimanja : datetime
-  vreme_dostavljanja : datetime
-  ocena : int
-  
-}
-
-class StavkaPorudzbine {
-  + stavka_id : int <<PK>>
-  + porudzbina_id : int <<FK>>
-  + artikal_id : int <<FK>>
-  --
-  kolicina : int
-  cijena_po_komadu : decimal
-  napomena : string
-}
-
-class Reklamacija {
-  + reklamacija_id : int <<PK>>
-  + porudzbina_id : int <<FK>>
-  + narucilac_id : int <<FK>>
-  --
-  opis_problema : string
-  status_reklamacije : string
-}
-
-Narucilac "1" -- "0..*" Porudzbina : kreira
-Restoran "1" -- "0..*" Porudzbina : prima
-ZaposleniRestorana "0..1" -- "0..*" Porudzbina : obradjuje
-Porudzbina "1" -- "1..*" StavkaPorudzbine : sadrzi
-Artikal "1" -- "0..*" StavkaPorudzbine : nalazi_se_u
-
-Reklamacija "0..*" -- "1" Porudzbina : ima
-Reklamacija "0..*" -- "1" Narucilac : podnosi
-
-Porudzbina "1" -- "1" Dostava : "ima"
-Dostavljac "1" -- "0..*" Dostava : "dostavlja"
-
-' =========================
-' PREPORUKE I ANALIZA ZARADE
-' =========================
 
 class PreporukaRestorana {
   + preporuka_id : int <<PK>>
@@ -196,66 +233,43 @@ class PreporukaRestorana {
   broj_porudzbina : int
   zarada_preko_preporuka : decimal
 }
-
-class AnalizaZarade {
-  + analiza_id : int <<PK>>
-  + restoran_id : int <<FK>>
-  --
-  datum_od : date
-  datum_do : date
-  broj_porudzbina : int
-  ukupna_zarada : decimal
-  zarada_od_specijalnih_ponuda : decimal
-  zarada_od_preporuka : decimal
 }
 
-Restoran "1" -- "0..*" PreporukaRestorana : ima
-Restoran "1" -- "0..*" AnalizaZarade : ima
 
-' ==================
-' PRAĆENJE DOSTAVE
-' ==================
 
-class SimulatorPozicije {
-  + simulator_id : int <<PK>>
-  + dostavljac_id : int <<FK>>
-  --
-  geo_sirina : decimal
-  geo_duzina : decimal
-}
-
+Korisnik <|-- Administrator
+Korisnik <|-- Dostavljac
+Korisnik <|-- MenadzerDostave
 Dostavljac "1" -- "1" SimulatorPozicije : "prati se"
-
-' ===============
-' SMENA
-' ===============
-
-class Vozilo {
-  + vozilo_id : int <<PK>>
-  + vlasnik_id : int <<FK>>
-  --
-  tip : string
-  model : string
-  marka : string
-  registarska_oznaka : string
-  boja : string
-  spreman : boolean
-  u_upotrebi : boolean
-  opis : string
-  
-}
-
-class IstorijaVozila {
-  + vozilo_id : int <<FK>>
-  + dostavljac_id : int <<FK>>
-  + dostava_id : int <<FK>>
-  
-}
 
 Vozilo "0..1" -- "0..1" Dostavljac : "duži"
 Vozilo "0..1" -- "0..1" Dostavljac : "poseduje"
 Vozilo "1" -- "0..1" IstorijaVozila : "ima"
 Dostavljac "1" -- "0..1" IstorijaVozila : "ima"
 
+Korisnik <|-- Narucilac
 
+Porudzbina "1" -- "1" Dostava : "ima"
+Dostavljac "1" -- "0..*" Dostava : "dostavlja"
+Korisnik <|-- MenadzerRestorana
+Korisnik <|-- ZaposleniRestorana
+
+Restoran "1" -- "0..*" MenadzerRestorana : ima
+Restoran "1" -- "0..*" ZaposleniRestorana : ima
+Restoran "1" -- "0..*" KategorijaArtikla : ima
+Restoran "1" -- "0..*" Artikal : nudi
+
+KategorijaArtikla "1" -- "0..*" Artikal : sadrzi
+
+Restoran "1" -- "0..*" SpecijalnaPonuda : kreira
+Artikal "0..1" -- "0..*" SpecijalnaPonuda : ima
+
+Narucilac "1" -- "0..*" Porudzbina : kreira
+Restoran "1" -- "0..*" Porudzbina : prima
+ZaposleniRestorana "0..1" -- "0..*" Porudzbina : obradjuje
+Porudzbina "1" -- "1..*" StavkaPorudzbine : sadrzi
+Artikal "1" -- "0..*" StavkaPorudzbine : nalazi_se_u
+
+Restoran "1" -- "0..*" PreporukaRestorana : ima
+Restoran "1" -- "0..*" AnalizaZarade : ima
 @enduml

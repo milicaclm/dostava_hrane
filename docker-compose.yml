@@ -51,7 +51,7 @@ services:
       - REDIS_PORT=6379
 
   delivery-subsystem:
-    build: ./application/delivery-subsystem/backend
+    build: ./application/delivery-subsystem/
     restart: on-failure
     volumes:
       - ./application/delivery-subsystem:/app
