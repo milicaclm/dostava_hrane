@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="sr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dostave</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            /* Osnovni, čitljiv font */
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            /* Centriran naslov gore */
+            margin-bottom: 40px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            /* Gura pretragu skroz levo, a dugme skroz desno */
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .search-box {
+            padding: 10px;
+            width: 300px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+
+        .search-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-advanced {
+            padding: 10px 15px;
+            background-color: #007bff;
+            /* Plava boja za naprednu pretragu */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-advanced:hover {
+            background-color: #0056b3;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #28a745;
+            /* Zelena boja kada je uključen */
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            /* Spaja ivice ćelija */
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            /* Blago siva pozadina zaglavlja tabele */
+            font-weight: bold;
+        }
+
+        th.sortable {
+            cursor: pointer;
+        }
+
+        th.sortable::after {
+            content: '\2195'; /* Neutralna strelica (gore-dole) */
+            margin-left: 5px;
+            opacity: 0.3;
+        }
+
+        th.sortable.asc::after {
+            content: '\2191'; /* Strelica nagore */
+            opacity: 1;
+        }
+
+        th.sortable.desc::after {
+            content: '\2193'; /* Strelica nadole */
+            opacity: 1;
+        }
+
+        th.sortable:hover {
+            background-color: #e2e6ea;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+            /* Hover efekat prilikom prelaska miša preko reda */
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Dostave</h1>
+
+    <div class="controls">
+        <div class="search-group">
+            <input type="text" class="search-box" placeholder="Pretraži id dostave...">
+            <button class="btn-advanced">Napredna pretraga</button>
+        </div>
+        <div class="toggle-container">
+            <span>Aktivne dostave</span>
+            <label class="switch">
+                <input type="checkbox" id="active-deliveries-toggle"> <!-- Isključen po defaultu (nema checked) -->
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="sortable" title="Klikni za sortiranje">ID</th>
+                <th class="sortable" title="Klikni za sortiranje">Poručeno u</th>
+                <th class="sortable" title="Klikni za sortiranje">Rok</th>
+                <th class="sortable" title="Klikni za sortiranje">Status</th>
+                <th class="sortable" title="Klikni za sortiranje">Adresa naručioca</th>
+                <th class="sortable" title="Klikni za sortiranje">Adresa restorana</th>
+                <th class="sortable" title="Klikni za sortiranje">Dostavljač</th>
+                <th>Akcije</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>14:30</td>
+                <td>15:15</td>
+                <td>U toku</td>
+                <td>Bulevar Oslobođenja 15</td>
+                <td>Restoran A, Cara Dušana 10</td>
+                <td>Jovan Jovanović</td>
+                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>13:00</td>
+                <td>13:45</td>
+                <td>Završeno</td>
+                <td>Knez Mihailova 5</td>
+                <td>Restoran B, Terazije 12</td>
+                <td>Petar Petrović</td>
+                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('th.sortable').forEach(th => {
+                let asc = true;
+                th.addEventListener('click', () => {
+                    const table = th.closest('table');
+                    const tbody = table.querySelector('tbody');
+                    const index = Array.from(th.parentNode.children).indexOf(th);
+
+                    // Resetovanje indikatora na ostalim kolonama
+                    table.querySelectorAll('th.sortable').forEach(header => {
+                        if (header !== th) header.classList.remove('asc', 'desc');
+                    });
+
+                    // Postavljanje indikatora na trenutnoj koloni
+                    if (asc) {
+                        th.classList.remove('desc');
+                        th.classList.add('asc');
+                    } else {
+                        th.classList.remove('asc');
+                        th.classList.add('desc');
+                    }
+
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    rows.sort((a, b) => {
+                        const valA = a.children[index].innerText.trim();
+                        const valB = b.children[index].innerText.trim();
+
+                        // Provera da li je broj
+                        if (!isNaN(valA) && !isNaN(valB) && valA !== '' && valB !== '') {
+                            return asc ? valA - valB : valB - valA;
+                        } else {
+                            return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                        }
+                    });
+
+                    asc = !asc;
+                    rows.forEach(tr => tbody.appendChild(tr));
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

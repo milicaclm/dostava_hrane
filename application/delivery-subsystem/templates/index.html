@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="sr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Početna stranica</title>
+    <!-- Povezivanje CSS fajla -->
+    <!-- <link rel="stylesheet" href="style.css"> -->
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            /* Zauzima punu visinu ekrana */
+        }
+
+        .sidebar {
+            flex: 1;
+            /* Zauzima 1 deo prostora */
+            background-color: #f4f4f4;
+            /* Blaga pozadina radi lakšeg uočavanja */
+            padding: 40px;
+
+
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            /* Razdvaja navigaciju i profil na vrh i dno */
+        }
+
+        .main-content {
+            flex: 5;
+            /* Zauzima 5 delova prostora */
+            padding: 20px;
+            display: flex;
+            /* Dodato da bi iframe zauzeo punu visinu kontejnera */
+        }
+
+        iframe[name="content-frame"] {
+            flex: 1;
+            /* Zauzima sav preostali prostor u desnom delu */
+            border: none;
+            /* Uklanja podrazumevani okvir (border) oko iframe-a */
+            width: 100%;
+        }
+
+
+
+        nav ul {
+            list-style-type: none;
+            /* Uklanja tačkice sa liste */
+            padding: 0;
+            margin: 0;
+            margin-top: 30px;
+        }
+
+        nav li {
+            margin-bottom: 15px;
+            /* Razmak između linkova */
+        }
+
+        nav a {
+            text-decoration: none;
+            /* Uklanja podvlaku sa linkova */
+            color: #333;
+            font-size: 16px;
+            display: block;
+            /* Osigurava da svaki link zauzme ceo red u svom bloku */
+        }
+
+        nav a:hover {
+            color: #007bff;
+            /* Boja linka prilikom prelaska mišem */
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            /* Razmak između slike i teksta */
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            /* Diskretna linija koja odvaja meni od profila */
+        }
+
+        .profile-pic {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            /* Pravi okruglu sliku */
+            object-fit: cover;
+        }
+
+        .user-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-email {
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Levi div za navigaciju (razmera 1) -->
+    <div class="sidebar">
+        <!-- Ovde će se kasnije pozivati navigacija -->
+        <nav>
+            <ul>
+                <li><a href="dostavljaci.html" target="content-frame">Dostavljači</a></li>
+                <li><a href="dostave.html" target="content-frame">Dostave</a></li>
+                <li><a href="vozila.html" target="content-frame">Vozila</a></li>
+                <li><a href="parametri.html" target="content-frame">Parametri</a></li>
+            </ul>
+        </nav>
+
+        <!-- Deo za korisnički profil na dnu -->
+        <div class="user-profile">
+            <img src="https://via.placeholder.com/40" alt="Slika profila" class="profile-pic">
+            <div class="user-info">
+                <span class="user-name">Ime Prezime</span>
+                <span class="user-email">korisnik@primer.com</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Desni div gde se nalazi stranica (razmera 5) -->
+    <div class="main-content">
+        <!-- Iframe po defaultu uvozi dostavljaci.html -->
+        <iframe src="dostavljaci.html" name="content-frame" title="Glavni sadržaj"></iframe>
+    </div>
+
+    <!-- Povezivanje JavaScript fajla -->
+    <!-- <script src="script.js"></script> -->
+</body>
+
+</html>
