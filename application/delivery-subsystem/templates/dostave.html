@@ -58,6 +58,47 @@
             background-color: #0056b3;
         }
 
+        .btn-add {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .btn-add:hover {
+            background-color: #218838;
+        }
+
+        .btn-edit {
+            padding: 5px 10px;
+            background-color: #ffc107;
+            color: black;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .btn-edit:hover {
+            background-color: #e0a800;
+        }
+
+        .btn-delete {
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+
         .toggle-container {
             display: flex;
             align-items: center;
@@ -136,18 +177,21 @@
         }
 
         th.sortable::after {
-            content: '\2195'; /* Neutralna strelica (gore-dole) */
+            content: '\2195';
+            /* Neutralna strelica (gore-dole) */
             margin-left: 5px;
             opacity: 0.3;
         }
 
         th.sortable.asc::after {
-            content: '\2191'; /* Strelica nagore */
+            content: '\2191';
+            /* Strelica nagore */
             opacity: 1;
         }
 
         th.sortable.desc::after {
-            content: '\2193'; /* Strelica nadole */
+            content: '\2193';
+            /* Strelica nadole */
             opacity: 1;
         }
 
@@ -171,12 +215,15 @@
             <input type="text" class="search-box" placeholder="Pretraži id dostave...">
             <button class="btn-advanced">Napredna pretraga</button>
         </div>
-        <div class="toggle-container">
-            <span>Aktivne dostave</span>
-            <label class="switch">
-                <input type="checkbox" id="active-deliveries-toggle"> <!-- Isključen po defaultu (nema checked) -->
-                <span class="slider"></span>
-            </label>
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div class="toggle-container">
+                <span>Aktivne dostave</span>
+                <label class="switch">
+                    <input type="checkbox" id="active-deliveries-toggle"> <!-- Isključen po defaultu (nema checked) -->
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <button class="btn-add" onclick="addDelivery()">+ Kreiraj dostavu</button>
         </div>
     </div>
 
@@ -184,41 +231,118 @@
         <thead>
             <tr>
                 <th class="sortable" title="Klikni za sortiranje">ID</th>
-                <th class="sortable" title="Klikni za sortiranje">Poručeno u</th>
-                <th class="sortable" title="Klikni za sortiranje">Rok</th>
-                <th class="sortable" title="Klikni za sortiranje">Status</th>
-                <th class="sortable" title="Klikni za sortiranje">Adresa naručioca</th>
-                <th class="sortable" title="Klikni za sortiranje">Adresa restorana</th>
+                <th class="sortable" title="Klikni za sortiranje">Od (Restoran)</th>
+                <th class="sortable" title="Klikni za sortiranje">Do (Kupac)</th>
                 <th class="sortable" title="Klikni za sortiranje">Dostavljač</th>
+                <th class="sortable" title="Klikni za sortiranje">Vreme početka</th>
+                <th class="sortable" title="Klikni za sortiranje">Vreme preuzimanja</th>
+                <th class="sortable" title="Klikni za sortiranje">Vreme dostavljanja</th>
+                <th class="sortable" title="Klikni za sortiranje">Status</th>
+                <th class="sortable" title="Klikni za sortiranje">Ocena</th>
                 <th>Akcije</th>
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td>1</td>
-                <td>14:30</td>
-                <td>15:15</td>
-                <td>U toku</td>
-                <td>Bulevar Oslobođenja 15</td>
-                <td>Restoran A, Cara Dušana 10</td>
-                <td>Jovan Jovanović</td>
-                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
-            </tr>
-            <tr>
-                <td>2</td>
-                <td>13:00</td>
-                <td>13:45</td>
-                <td>Završeno</td>
-                <td>Knez Mihailova 5</td>
-                <td>Restoran B, Terazije 12</td>
-                <td>Petar Petrović</td>
-                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
-            </tr>
+            <!-- Dinamički podaci iz baze -->
         </tbody>
     </table>
 
     <script>
+        const API_BASE_DELIVERIES = 'http://localhost:8000/api/delivery-subsystem/deliveries';
+
+        async function loadDeliveries() {
+            try {
+                const response = await fetch(API_BASE_DELIVERIES + '/');
+                const data = await response.json();
+                const tbody = document.querySelector('tbody');
+                const activeOnly = document.getElementById('active-deliveries-toggle').checked;
+
+                tbody.innerHTML = '';
+
+                if (Array.isArray(data)) {
+                    data.forEach(delivery => {
+                        // Preskoči završene/otkazane dostave ako je uključen switch za 'Aktivne'
+                        if (activeOnly && (delivery.status === 'completed' || delivery.status === 'cancelled')) return;
+
+                        const tr = document.createElement('tr');
+                        const fmtTime = (t) => t && t !== 'None' ? t.replace('T', ' ').substring(0, 16) : '/';
+
+                        tr.innerHTML = `
+                            <td>${delivery.id}</td>
+                            <td>${delivery.from_location || '/'}</td>
+                            <td>${delivery.to_location || '/'}</td>
+                            <td>${delivery.courier || 'Nije dodeljen'}</td>
+                            <td>${fmtTime(delivery.start_time)}</td>
+                            <td>${fmtTime(delivery.pickup_time)}</td>
+                            <td>${fmtTime(delivery.delivery_time)}</td>
+                            <td><strong>${delivery.status}</strong></td>
+                            <td>${delivery.rating || '/'}</td>
+                            <td>
+                                <button class="btn-edit" onclick="editDelivery('${delivery.id}')">Izmeni</button>
+                                <button class="btn-delete" onclick="deleteDelivery('${delivery.id}')">Obriši</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (error) {
+                console.error('Greška pri učitavanju dostava:', error);
+            }
+        }
+
+        async function addDelivery() {
+            const id = prompt('Unesite ID dostave (npr. del-10):');
+            if (!id) return;
+            const from_location = prompt('Unesite lokaciju preuzimanja (Restoran):');
+            const to_location = prompt('Unesite lokaciju dostave (Kupac):');
+            const status = prompt('Unesite status (pending, in_transit, completed...):', 'pending');
+
+            const order_time = new Date().toISOString();
+            const payload = { id, status, from_location, to_location, order_time, rating: 0 };
+
+            try {
+                await fetch(API_BASE_DELIVERIES + '/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                loadDeliveries();
+            } catch (e) { console.error(e); }
+        }
+
+        async function deleteDelivery(id) {
+            if (!confirm('Da li ste sigurni da želite da obrišete ovu dostavu?')) return;
+            try {
+                await fetch(`${API_BASE_DELIVERIES}/${id}`, { method: 'DELETE' });
+                loadDeliveries();
+            } catch (e) { console.error(e); }
+        }
+
+        async function editDelivery(id) {
+            const from_location = prompt('Unesite novu lokaciju preuzimanja (Restoran):');
+            if (!from_location) return;
+            const to_location = prompt('Unesite novu lokaciju dostave (Kupac):');
+            const status = prompt('Unesite novi status:', 'pending');
+            const rating = prompt('Unesite ocenu (1-5):', '0');
+
+            const payload = { status, from_location, to_location, rating: parseInt(rating) || 0 };
+
+            try {
+                await fetch(`${API_BASE_DELIVERIES}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                loadDeliveries();
+            } catch (e) { console.error(e); }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            loadDeliveries(); // Inicijalno učitavanje
+
+            // Osvežavanje podataka prilikom klika na toggle 'Aktivne dostave'
+            document.getElementById('active-deliveries-toggle').addEventListener('change', loadDeliveries);
+
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;
                 th.addEventListener('click', () => {

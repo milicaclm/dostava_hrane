@@ -28,11 +28,26 @@ def forward_request(base_url, path):
     headers = [(name, value) for (name, value) in resp.raw.headers.items()
                if name.lower() not in excluded_headers]
 
-    return Response(resp.content, resp.status_code, headers)
+    flask_response = Response(resp.content, resp.status_code, headers)
+    
+    # Dodavanje CORS zaglavlja za odgovore sa podsistema
+    flask_response.headers['Access-Control-Allow-Origin'] = '*'
+    flask_response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    flask_response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, Origin, X-Requested-With'
+    
+    return flask_response
 
-@app.route('/api/delivery-subsystem/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE'])
-@app.route('/api/delivery-subsystem/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@app.route('/api/delivery-subsystem/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+@app.route('/api/delivery-subsystem/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 def proxy_delivery(path):
+    # Preflight zahtevi za CORS (kad browser proverava da li sme da pošalje POST/PUT/DELETE)
+    if request.method == 'OPTIONS':
+        response = Response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, Origin, X-Requested-With'
+        return response
+        
     return forward_request(DELIVERY_SUBSYSTEM_URL, path)
 
 # Primer rute za budući podsistem:

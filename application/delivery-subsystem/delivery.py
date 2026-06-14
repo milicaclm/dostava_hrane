@@ -32,10 +32,16 @@ def _fmt_dt(v):
 @delivery_bp.route('/')
 def get_deliveries():
     with driver.session() as session:
-        result = session.run("MATCH (d:Delivery) RETURN d")
+        result = session.run("MATCH (d:Delivery) OPTIONAL MATCH (u:User)-[:ASSIGNED_TO]->(d) RETURN d, u")
         deliveries = []
         for record in result:
             delivery_node = record["d"]
+            user_node = record["u"]
+            
+            courier_info = None
+            if user_node:
+                courier_info = f"{user_node['id']} - {user_node.get('name', '')} {user_node.get('surname', '')}".strip()
+
             deliveries.append({
                 "id": delivery_node["id"],
                 "status": delivery_node["status"],
@@ -45,17 +51,23 @@ def get_deliveries():
                 "pickup_time": _fmt_dt(delivery_node.get("pickup_time")),
                 "delivery_time": _fmt_dt(delivery_node.get("delivery_time")),
                 "rating": delivery_node.get("rating"),
-                "order_time": _fmt_dt(delivery_node.get("order_time"))
+                "order_time": _fmt_dt(delivery_node.get("order_time")),
+                "courier": courier_info
             })
     return jsonify(deliveries)
     
 @delivery_bp.route('/<delivery_id>')
 def get_delivery(delivery_id):
     with driver.session() as session:
-        result = session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id)
+        result = session.run("MATCH (d:Delivery {id: $delivery_id}) OPTIONAL MATCH (u:User)-[:ASSIGNED_TO]->(d) RETURN d, u", delivery_id=delivery_id)
         record = result.single()
         if record:
             delivery_node = record["d"]
+            user_node = record["u"]
+            courier_info = None
+            if user_node:
+                courier_info = f"{user_node['id']} - {user_node.get('name', '')} {user_node.get('surname', '')}".strip()
+                
             delivery = {
                 "id": delivery_node["id"],
                 "status": delivery_node["status"],
@@ -65,7 +77,8 @@ def get_delivery(delivery_id):
                 "start_time": _fmt_dt(delivery_node.get("start_time")),
                 "pickup_time": _fmt_dt(delivery_node.get("pickup_time")),
                 "delivery_time": _fmt_dt(delivery_node.get("delivery_time")),
-                "rating": delivery_node.get("rating")
+                "rating": delivery_node.get("rating"),
+                "courier": courier_info
             }
             return jsonify(delivery)
         else:
@@ -391,13 +404,11 @@ def unassign_vehicle(delivery_id):
 
 @delivery_bp.route('/<delivery_id>/complete', methods=['POST'])
 def complete_delivery(delivery_id):
-    """Mark delivery delivered and record vehicle history (IstorijaVozila).
-    Expects JSON: {"courier_id": "...", "license_plate": "...", "note": "optional"}
+    """Mark delivery delivered.
+    Expects JSON: {"courier_id": "...", "note": "optional"}
     """
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
-    license_plate = data.get('license_plate')
-    note = data.get('note')
 
     with driver.session() as session:
         # verify delivery
@@ -423,53 +434,7 @@ def complete_delivery(delivery_id):
                 import traceback
                 traceback.print_exc()
 
-        # Record vehicle history as per ŠBP.puml
-        if courier_id and license_plate:
-            session.run(
-                "MATCH (u:User {id: $courier_id}), (v:Vehicle {license_plate: $license_plate}), (d:Delivery {id: $delivery_id}) "
-                "CREATE (h:VehicleHistory {timestamp: datetime(), note: $note}) "
-                "CREATE (h)-[:FOR_VEHICLE]->(v), (h)-[:FOR_COURIER]->(u), (h)-[:FOR_DELIVERED_ITEM]->(d)",
-                courier_id=courier_id, license_plate=license_plate, delivery_id=delivery_id, note=note
-            )
-
     return jsonify({"status": "completed", "delivery_id": delivery_id}), 200
-
-
-@delivery_bp.route('/<delivery_id>/history', methods=['GET'])
-def get_delivery_history(delivery_id):
-    """Read history for a specific delivery with related IDs."""
-    with driver.session() as session:
-        if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
-            return jsonify({"error": "Delivery not found"}), 404
-
-        result = session.run(
-            "MATCH (u:User)-[:FOR_COURIER]-(h:VehicleHistory)-[:FOR_DELIVERED_ITEM]->(d:Delivery {id: $delivery_id}), "
-            "(h)-[:FOR_VEHICLE]-(v:Vehicle) "
-            "RETURN h, u.id as courier_id, v.license_plate as vehicle_id ORDER BY h.timestamp DESC",
-            delivery_id=delivery_id
-        )
-        history = []
-        for record in result:
-            h = record['h']
-            history.append({
-                'vehicle_id': record['vehicle_id'],
-                'courier_id': record['courier_id'],
-                'delivery_id': delivery_id,
-                'note': h.get('note'),
-                'timestamp': str(h.get('timestamp'))
-            })
-    return jsonify({'history': history})
-
-@delivery_bp.route('/history/<delivery_id>', methods=['DELETE'])
-def delete_delivery_history(delivery_id):
-    """Delete all history records for a specific delivery."""
-    with driver.session() as session:
-        result = session.run(
-            "MATCH (h:VehicleHistory)-[:FOR_DELIVERED_ITEM]->(d:Delivery {id: $delivery_id}) "
-            "DETACH DELETE h RETURN count(h) as deleted_count",
-            delivery_id=delivery_id
-        )
-        return jsonify({"message": "History deleted", "count": result.single()["deleted_count"]}), 200
 
 # --- Offer / suggestion workflow ---
 @delivery_bp.route('/<delivery_id>/propose_couriers', methods=['GET'])

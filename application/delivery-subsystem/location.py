@@ -134,6 +134,8 @@ def set_position():
             # delivery_id present (enforced above) — add to mapping
             mapping["user_id"] = uid
             mapping["delivery_id"] = data.get("delivery_id")
+            if data.get("vehicle_id"):
+                mapping["vehicle_id"] = data.get("vehicle_id")
             redis_client.hset(f"pos:{uid}", mapping=mapping)
         except Exception as e:
             print(f"Error setting position: {e}")
@@ -159,11 +161,13 @@ def tracking_loop(user_id):
             lon = 0.0
         delivery_id = data.get("delivery_id", "")
         delivery_status = data.get("delivery_status", "")
+        vehicle_id = data.get("vehicle_id", "")
 
         point = (
             Point("geo_position")
             .tag("user_id", str(user_id))
             .tag("delivery_id", str(delivery_id))
+            .tag("vehicle_id", str(vehicle_id))
             .field("lat", lat)
             .field("lon", lon)
             .field("delivery_status", delivery_status)
@@ -192,6 +196,7 @@ def start_tracking():
     user_id = request.args.get('user_id') or data.get('user_id')
     # require delivery_id (from query or JSON) so each point includes it
     delivery_id = request.args.get('delivery_id') or data.get('delivery_id')
+    vehicle_id = request.args.get('vehicle_id') or data.get('vehicle_id')
     if not delivery_id:
         return jsonify({"status": "error", "message": "delivery_id is required"}), 400
     # require a user_id
@@ -211,7 +216,10 @@ def start_tracking():
     existing = redis_client.hgetall(f"pos:{user_id}")
     # persist provided delivery_id into the Redis hash (add to mapping)
     try:
-        redis_client.hset(f"pos:{user_id}", mapping={"delivery_id": delivery_id})
+        mapping = {"delivery_id": delivery_id}
+        if vehicle_id:
+            mapping["vehicle_id"] = vehicle_id
+        redis_client.hset(f"pos:{user_id}", mapping=mapping)
         # refresh existing map for subsequent checks
         existing = redis_client.hgetall(f"pos:{user_id}")
     except Exception as e:

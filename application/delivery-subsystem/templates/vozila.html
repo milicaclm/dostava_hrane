@@ -36,6 +36,27 @@
             font-size: 14px;
         }
 
+        .search-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-advanced {
+            padding: 10px 15px;
+            background-color: #007bff;
+            /* Plava boja za naprednu pretragu */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-advanced:hover {
+            background-color: #0056b3;
+        }
+
         .btn-add {
             padding: 10px 20px;
             background-color: #28a745;
@@ -51,6 +72,28 @@
         .btn-add:hover {
             background-color: #218838;
         }
+
+        .btn-edit {
+            padding: 5px 10px;
+            background-color: #ffc107;
+            color: black;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .btn-edit:hover { background-color: #e0a800; }
+
+        .btn-delete {
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .btn-delete:hover { background-color: #c82333; }
 
         table {
             width: 100%;
@@ -76,18 +119,21 @@
         }
 
         th.sortable::after {
-            content: '\2195'; /* Neutralna strelica (gore-dole) */
+            content: '\2195';
+            /* Neutralna strelica (gore-dole) */
             margin-left: 5px;
             opacity: 0.3;
         }
 
         th.sortable.asc::after {
-            content: '\2191'; /* Strelica nagore */
+            content: '\2191';
+            /* Strelica nagore */
             opacity: 1;
         }
 
         th.sortable.desc::after {
-            content: '\2193'; /* Strelica nadole */
+            content: '\2193';
+            /* Strelica nadole */
             opacity: 1;
         }
 
@@ -107,37 +153,119 @@
     <h1>Vozila</h1>
 
     <div class="controls">
-        <input type="text" class="search-box" placeholder="Pretraži vozila po oznaci...">
-        <button class="btn-add">+ Dodaj vozilo</button>
+        <div class="search-group">
+            <input type="text" class="search-box" placeholder="Pretraži vozila po oznaci...">
+            <button class="btn-advanced">Napredna pretraga</button>
+        </div>
+        <button class="btn-add" onclick="addVehicle()">+ Dodaj vozilo</button>
     </div>
 
     <table>
         <thead>
             <tr>
+                <th class="sortable" title="Klikni za sortiranje">Vlasnik ID</th>
                 <th class="sortable" title="Klikni za sortiranje">Registarska oznaka</th>
                 <th class="sortable" title="Klikni za sortiranje">Tip</th>
+                <th class="sortable" title="Klikni za sortiranje">Model</th>
+                <th class="sortable" title="Klikni za sortiranje">Marka</th>
+                <th class="sortable" title="Klikni za sortiranje">Boja</th>
                 <th class="sortable" title="Klikni za sortiranje">Spreman</th>
+                <th class="sortable" title="Klikni za sortiranje">Zauzeto</th>
                 <th>Akcije</th>
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td>BG-123-AB</td>
-                <td>Automobil</td>
-                <td>DA</td>
-                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
-            </tr>
-            <tr>
-                <td>NS-456-CD</td>
-                <td>Skuter</td>
-                <td>NE</td>
-                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
-            </tr>
+            <!-- Dinamički podaci iz baze -->
         </tbody>
     </table>
 
     <script>
+        const API_BASE_VEHICLES = 'http://localhost:8000/api/delivery-subsystem/vehicles';
+
+        async function loadVehicles() {
+            try {
+                const response = await fetch(API_BASE_VEHICLES);
+                const data = await response.json();
+                const tbody = document.querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                if (data.vehicles) {
+                    data.vehicles.forEach(vehicle => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${vehicle.owner_id || '/'}</td>
+                            <td>${vehicle.license_plate}</td>
+                            <td>${vehicle.type}</td>
+                            <td>${vehicle.model || ''}</td>
+                            <td>${vehicle.brand || ''}</td>
+                            <td>${vehicle.color || ''}</td>
+                            <td>${vehicle.is_ready ? 'Da' : 'Ne'}</td>
+                            <td>${vehicle.in_use ? 'Da' : 'Ne'}</td>
+                            <td>
+                                <button class="btn-edit" onclick="editVehicle('${vehicle.license_plate}')">Izmeni</button>
+                                <button class="btn-delete" onclick="deleteVehicle('${vehicle.license_plate}')">Obriši</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (error) {
+                console.error('Greška pri učitavanju vozila:', error);
+            }
+        }
+
+        async function addVehicle() {
+            const owner_id = prompt('Unesite ID vlasnika (opciono):') || null;
+            const license_plate = prompt('Unesite registraciju (npr. BG-1234):');
+            if (!license_plate) return;
+            const type = prompt('Unesite tip (bike, car):');
+            const brand = prompt('Unesite marku:');
+            const model = prompt('Unesite model:');
+            const color = prompt('Unesite boju:');
+            
+            const payload = { owner_id, license_plate, type, brand, model, color, is_ready: true, description: '' };
+            
+            try {
+                await fetch(API_BASE_VEHICLES, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                loadVehicles();
+            } catch (e) { console.error(e); }
+        }
+
+        async function deleteVehicle(licensePlate) {
+            if (!confirm('Da li ste sigurni da želite da obrišete ovo vozilo?')) return;
+            try {
+                await fetch(`${API_BASE_VEHICLES}/${licensePlate}`, { method: 'DELETE' });
+                loadVehicles();
+            } catch (e) { console.error(e); }
+        }
+
+        async function editVehicle(licensePlate) {
+            const owner_id = prompt('Unesite novi ID vlasnika (opciono):') || null;
+            const type = prompt('Unesite novi tip (bike, car):');
+            if (!type) return;
+            const brand = prompt('Unesite novu marku:');
+            const model = prompt('Unesite novi model:');
+            const color = prompt('Unesite novu boju:');
+            
+            const payload = { owner_id, type, brand, model, color, is_ready: true, description: '' };
+            
+            try {
+                await fetch(`${API_BASE_VEHICLES}/${licensePlate}/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                loadVehicles();
+            } catch (e) { console.error(e); }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            loadVehicles(); // Učitavanje odmah na startu
+
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;
                 th.addEventListener('click', () => {

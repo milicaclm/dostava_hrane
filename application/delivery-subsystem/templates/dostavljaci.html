@@ -36,6 +36,27 @@
             font-size: 14px;
         }
 
+        .search-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-advanced {
+            padding: 10px 15px;
+            background-color: #007bff;
+            /* Plava boja za naprednu pretragu */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-advanced:hover {
+            background-color: #0056b3;
+        }
+
         .btn-add {
             padding: 10px 20px;
             background-color: #28a745;
@@ -51,6 +72,28 @@
         .btn-add:hover {
             background-color: #218838;
         }
+
+        .btn-edit {
+            padding: 5px 10px;
+            background-color: #ffc107;
+            color: black;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .btn-edit:hover { background-color: #e0a800; }
+
+        .btn-delete {
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .btn-delete:hover { background-color: #c82333; }
 
         table {
             width: 100%;
@@ -76,18 +119,21 @@
         }
 
         th.sortable::after {
-            content: '\2195'; /* Neutralna strelica (gore-dole) */
+            content: '\2195';
+            /* Neutralna strelica (gore-dole) */
             margin-left: 5px;
             opacity: 0.3;
         }
 
         th.sortable.asc::after {
-            content: '\2191'; /* Strelica nagore */
+            content: '\2191';
+            /* Strelica nagore */
             opacity: 1;
         }
 
         th.sortable.desc::after {
-            content: '\2193'; /* Strelica nadole */
+            content: '\2193';
+            /* Strelica nadole */
             opacity: 1;
         }
 
@@ -107,8 +153,11 @@
     <h1>Dostavljači</h1>
 
     <div class="controls">
-        <input type="text" class="search-box" placeholder="Pretraži dostavljače...">
-        <button class="btn-add">+ Dodaj dostavljača</button>
+        <div class="search-group">
+            <input type="text" class="search-box" placeholder="Pretraži dostavljače...">
+            <button class="btn-advanced">Napredna pretraga</button>
+        </div>
+        <button class="btn-add" onclick="addCourier()">+ Dodaj dostavljača</button>
     </div>
 
     <table>
@@ -117,33 +166,114 @@
                 <th class="sortable">ID</th>
                 <th class="sortable">Ime</th>
                 <th class="sortable">Prezime</th>
-                <th class="sortable" title="Klikni za sortiranje">Dozvola za motor</th>
-                <th class="sortable" title="Klikni za sortiranje">Dozvola za automobil</th>
-                <th></th>
+                <th class="sortable">Email</th>
+                <th class="sortable">Telefon</th>
+                <th class="sortable">Aktivan</th>
+                <th class="sortable" title="Klikni za sortiranje">Dozvola (Motor)</th>
+                <th class="sortable" title="Klikni za sortiranje">Dozvola (Auto)</th>
+                <th class="sortable">Plata (RSD)</th>
+                <th class="sortable">Ocena</th>
+                <th>Akcije</th>
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td>1</td>
-                <td>Jovan</td>
-                <td>Jovanović</td>
-                <td>DA</td>
-                <td>NE</td>
-                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
-            </tr>
-            <tr>
-                <td>2</td>
-                <td>Petar</td>
-                <td>Petrović</td>
-                <td>NE</td>
-                <td>DA</td>
-                <td><a href="#">Izmeni</a> | <a href="#">Obriši</a></td>
-            </tr>
+            <!-- Dinamički podaci iz baze -->
         </tbody>
     </table>
 
     <script>
+        const API_BASE_COURIERS = 'http://localhost:8000/api/delivery-subsystem/couriers';
+
+        async function loadCouriers() {
+            try {
+                const response = await fetch(API_BASE_COURIERS);
+                const data = await response.json();
+                const tbody = document.querySelector('tbody');
+                tbody.innerHTML = '';
+                
+                if (data.couriers) {
+                    data.couriers.forEach(courier => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${courier.id}</td>
+                            <td>${courier.name}</td>
+                            <td>${courier.surname}</td>
+                            <td>${courier.email}</td>
+                            <td>${courier.phone_number}</td>
+                            <td>${courier.is_active ? 'Da' : 'Ne'}</td>
+                            <td>${courier.motorcycle_license ? 'Da' : 'Ne'}</td>
+                            <td>${courier.car_license ? 'Da' : 'Ne'}</td>
+                            <td>${courier.salary}</td>
+                            <td>${courier.average_rating}</td>
+                            <td>
+                                <button class="btn-edit" onclick="editCourier('${courier.id}')">Izmeni</button>
+                                <button class="btn-delete" onclick="deleteCourier('${courier.id}')">Obriši</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (error) {
+                console.error('Greška pri učitavanju dostavljača:', error);
+            }
+        }
+
+        async function addCourier() {
+            const id = prompt('Unesite ID (npr. user-del-5):');
+            if (!id) return;
+            const name = prompt('Unesite Ime:');
+            const surname = prompt('Unesite Prezime:');
+            const email = prompt('Unesite Email:');
+            const phone_number = prompt('Unesite Telefon:');
+            const motorcycle_license = confirm('Da li dostavljač ima dozvolu za motor?');
+            const car_license = confirm('Da li dostavljač ima dozvolu za automobil?');
+            const salary = parseFloat(prompt('Unesite platu (npr. 50000):')) || 0;
+            
+            const payload = { id, name, surname, email, phone_number, is_active: true, password: 'pass', motorcycle_license, car_license, salary, average_rating: 0 };
+            
+            try {
+                await fetch(API_BASE_COURIERS, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                loadCouriers();
+            } catch (e) { console.error(e); }
+        }
+
+        async function deleteCourier(id) {
+            if (!confirm('Da li ste sigurni da želite da obrišete ovog dostavljača?')) return;
+            try {
+                await fetch(`${API_BASE_COURIERS}/${id}`, { method: 'DELETE' });
+                loadCouriers();
+            } catch (e) { console.error(e); }
+        }
+
+        async function editCourier(id) {
+            const name = prompt('Unesite novo Ime:');
+            if (!name) return;
+            const surname = prompt('Unesite novo Prezime:');
+            const email = prompt('Unesite novi Email:');
+            const phone_number = prompt('Unesite novi Telefon:');
+            const motorcycle_license = confirm('Da li dostavljač ima dozvolu za motor?');
+            const car_license = confirm('Da li dostavljač ima dozvolu za automobil?');
+            const salary = parseFloat(prompt('Unesite novu platu:')) || 0;
+            
+            const payload = { name, surname, email, phone_number, is_active: true, motorcycle_license, car_license, salary, average_rating: 0 }; // Obično se ocena ne menja ručno već se računa, ovde smo je stavili na 0 reset za primer
+            
+            try {
+                await fetch(`${API_BASE_COURIERS}/${id}/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                loadCouriers();
+            } catch (e) { console.error(e); }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            loadCouriers(); // Učitavanje podataka odmah po otvaranju stranice
+            
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;
                 th.addEventListener('click', () => {

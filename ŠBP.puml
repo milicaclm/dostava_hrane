@@ -50,7 +50,6 @@ class Dostavljac {
 
 
 class SimulatorPozicije {
-  + simulator_id : int <<PK>>
   + dostavljac_id : int <<FK>>
   --
   geo_sirina : decimal
@@ -74,13 +73,6 @@ class Vozilo {
   
 }
 
-class IstorijaVozila {
-  + vozilo_id : int <<FK>>
-  + dostavljac_id : int <<FK>>
-  + dostava_id : int <<FK>>
-  
-}
-
 
 
 
@@ -88,7 +80,10 @@ class Dostava {
   + dostava_id : int <<PK>>
   + dostavljac_id : int <<FK>>
   --
-  status : int
+  status : string
+  od_lokacije : string
+  do_lokacije : string
+  vreme_porucivanja : datetime
   vreme_pocetka : datetime
   vreme_preuzimanja : datetime
   vreme_dostavljanja : datetime
@@ -244,8 +239,6 @@ Dostavljac "1" -- "1" SimulatorPozicije : "prati se"
 
 Vozilo "0..1" -- "0..1" Dostavljac : "duži"
 Vozilo "0..1" -- "0..1" Dostavljac : "poseduje"
-Vozilo "1" -- "0..1" IstorijaVozila : "ima"
-Dostavljac "1" -- "0..1" IstorijaVozila : "ima"
 
 Korisnik <|-- Narucilac
 

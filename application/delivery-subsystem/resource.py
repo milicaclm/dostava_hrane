@@ -17,18 +17,28 @@ def hello():
 @resource_bp.route('/vehicles')
 def get_vehicles():
     with driver.session() as session:
-        result = session.run("MATCH (v:Vehicle) RETURN v")
+        result = session.run(
+            """
+            MATCH (v:Vehicle)
+            OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
+            WHERE d.status IN ['accepted', 'in_transit']
+            WITH v, count(d) > 0 AS is_in_use
+            RETURN v, is_in_use
+            """
+        )
         vehicles = []
         for record in result:
             vehicle_node = record["v"]
+            is_in_use = record["is_in_use"]
             vehicles.append({
+                "owner_id": vehicle_node.get("owner_id"),
                 "type": vehicle_node["type"],
                 "license_plate": vehicle_node["license_plate"],
                 "is_ready": vehicle_node["is_ready"],
                 "brand": vehicle_node.get("brand"),
                 "model": vehicle_node.get("model"),
                 "color": vehicle_node.get("color"),
-                "in_use": vehicle_node.get("in_use"),
+                "in_use": is_in_use,
                 "description": vehicle_node.get("description")
             })
     return {"vehicles": vehicles}
@@ -61,7 +71,11 @@ def get_couriers():
                 "surname": user_node["surname"],
                 "email": user_node["email"],
                 "phone_number": user_node["phone_number"],
-                "is_active": user_node["is_active"]
+                "is_active": user_node["is_active"],
+                "motorcycle_license": user_node.get("motorcycle_license", False),
+                "car_license": user_node.get("car_license", False),
+                "salary": user_node.get("salary", 0.0),
+                "average_rating": user_node.get("average_rating", 0.0)
             })
     return {"couriers": couriers}
 
@@ -72,14 +86,19 @@ def update_courier(courier_id):
     with driver.session() as session:
         result = session.run(
             "MATCH (u:User {id: $courier_id, account_type: 'courier'}) "
-            "SET u.name = $name, u.surname = $surname, u.email = $email, u.phone_number = $phone_number, u.is_active = $is_active "
+            "SET u.name = $name, u.surname = $surname, u.email = $email, u.phone_number = $phone_number, u.is_active = $is_active, "
+            "u.motorcycle_license = $motorcycle_license, u.car_license = $car_license, u.salary = $salary, u.average_rating = $average_rating "
             "RETURN u",
             courier_id=courier_id,
             name=data["name"],
             surname=data["surname"],
             email=data["email"],
             phone_number=data["phone_number"],
-            is_active=data["is_active"]
+            is_active=data["is_active"],
+            motorcycle_license=data.get("motorcycle_license", False),
+            car_license=data.get("car_license", False),
+            salary=data.get("salary", 0.0),
+            average_rating=data.get("average_rating", 0.0)
         )
         record = result.single()
         if record:
@@ -90,7 +109,11 @@ def update_courier(courier_id):
                 "surname": user_node["surname"],
                 "email": user_node["email"],
                 "phone_number": user_node["phone_number"],
-                "is_active": user_node["is_active"]
+                "is_active": user_node["is_active"],
+                "motorcycle_license": user_node.get("motorcycle_license", False),
+                "car_license": user_node.get("car_license", False),
+                "salary": user_node.get("salary", 0.0),
+                "average_rating": user_node.get("average_rating", 0.0)
             }
             return jsonify(courier)
         else:
@@ -101,30 +124,38 @@ def update_vehicle(license_plate):
     data = request.get_json()
     with driver.session() as session:
         result = session.run(
-            "MATCH (v:Vehicle {license_plate: $license_plate}) "
-            "SET v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model, "
-            "v.color = $color, v.in_use = $in_use, v.description = $description "
-            "RETURN v",
+            """
+            MATCH (v:Vehicle {license_plate: $license_plate})
+            SET v.owner_id = $owner_id, v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model,
+            v.color = $color, v.description = $description
+            WITH v
+            OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
+            WHERE d.status IN ['accepted', 'in_transit']
+            WITH v, count(d) > 0 AS is_in_use
+            RETURN v, is_in_use
+            """,
             license_plate=license_plate,
+            owner_id=data.get("owner_id"),
             type=data["type"],
             is_ready=data["is_ready"],
             brand=data.get("brand"),
             model=data.get("model"),
             color=data.get("color"),
-            in_use=data.get("in_use"),
             description=data.get("description")
         )
         record = result.single()
         if record:
             vehicle_node = record["v"]
+            is_in_use = record["is_in_use"]
             vehicle = {
+                "owner_id": vehicle_node.get("owner_id"),
                 "type": vehicle_node["type"],
                 "license_plate": vehicle_node["license_plate"],
                 "is_ready": vehicle_node["is_ready"],
                 "brand": vehicle_node.get("brand"),
                 "model": vehicle_node.get("model"),
                 "color": vehicle_node.get("color"),
-                "in_use": vehicle_node.get("in_use"),
+                "in_use": is_in_use,
                 "description": vehicle_node.get("description")
             }
             return jsonify(vehicle)
@@ -177,15 +208,17 @@ def create_vehicle():
     data = request.get_json()
     with driver.session() as session:
         session.run(
-            "CREATE (v:Vehicle {type: $type, license_plate: $license_plate, is_ready: $is_ready, "
-            "brand: $brand, model: $model, color: $color, in_use: $in_use, description: $description})",
+            """
+            CREATE (v:Vehicle {owner_id: $owner_id, type: $type, license_plate: $license_plate, is_ready: $is_ready,
+            brand: $brand, model: $model, color: $color, description: $description})
+            """,
+            owner_id=data.get("owner_id"),
             type=data["type"],
             license_plate=data["license_plate"],
             is_ready=data["is_ready"],
             brand=data.get("brand"),
             model=data.get("model"),
             color=data.get("color"),
-            in_use=data.get("in_use", False),
             description=data.get("description")
         )
     return jsonify({"message": "Vehicle created successfully"}), 201
@@ -195,14 +228,18 @@ def create_courier():
     data = request.get_json()
     with driver.session() as session:
         session.run(
-            "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, account_type: 'courier', is_active: $is_active, password: $password})",
+            "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, account_type: 'courier', is_active: $is_active, password: $password, motorcycle_license: $motorcycle_license, car_license: $car_license, salary: $salary, average_rating: $average_rating})",
             id=data["id"],
             name=data["name"],
             surname=data["surname"],
             email=data["email"],
             phone_number=data["phone_number"],
-            is_active=data["is_active"],
-            password=data["password"]
+            is_active=data.get("is_active", True),
+            password=data.get("password", "pass1234"),
+            motorcycle_license=data.get("motorcycle_license", False),
+            car_license=data.get("car_license", False),
+            salary=data.get("salary", 0.0),
+            average_rating=data.get("average_rating", 0.0)
         )
     return jsonify({"message": "Courier created successfully"}), 201
 
