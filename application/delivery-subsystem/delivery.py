@@ -627,3 +627,6 @@ def courier_cancel(delivery_id):
         # remove assignment
         session.run("MATCH (u:User {id: $courier_id})-[r:ASSIGNED_TO]->(d:Delivery {id: $delivery_id}) DELETE r", courier_id=courier_id, delivery_id=delivery_id)
     return jsonify({'message': 'Delivery cancelled by courier'}), 200
+
+
+

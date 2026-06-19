@@ -1,6 +1,7 @@
 #servis za menadžment resursima
 import os
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from neo4j import GraphDatabase
 
 resource_bp = Blueprint('resource', __name__)
@@ -15,16 +16,20 @@ def hello():
     return "Hello, Resource Service!"
 
 @resource_bp.route('/vehicles')
+@jwt_required()
 def get_vehicles():
+    current_user_id = get_jwt_identity()
     with driver.session() as session:
         result = session.run(
             """
             MATCH (v:Vehicle)
+            WHERE v.owner_id IS NULL OR v.owner_id = $current_user_id
             OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
             WHERE d.status IN ['accepted', 'in_transit']
             WITH v, count(d) > 0 AS is_in_use
             RETURN v, is_in_use
-            """
+            """,
+            current_user_id=current_user_id
         )
         vehicles = []
         for record in result:

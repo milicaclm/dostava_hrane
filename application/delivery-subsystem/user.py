@@ -3,7 +3,7 @@ import uuid
 import os
 from flask import Blueprint, jsonify, request
 from neo4j import GraphDatabase
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 user_bp = Blueprint('user', __name__)
 
@@ -176,7 +176,9 @@ def register():
     return jsonify({"message": "User created successfully", "id": user_id}), 201
 
 @user_bp.route('/<user_id>/assign_vehicle/<license_plate>', methods=['POST'])
+@jwt_required()
 def assign_vehicle(user_id, license_plate):
+    current_user_id = get_jwt_identity()
     with driver.session() as session:
         user_rec = session.run(
             "MATCH (u:User {id: $user_id}) WHERE u.account_type IN ['courier','delivery'] RETURN u",
