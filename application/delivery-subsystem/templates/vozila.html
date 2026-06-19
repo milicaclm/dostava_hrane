@@ -82,7 +82,9 @@
             cursor: pointer;
         }
 
-        .btn-edit:hover { background-color: #e0a800; }
+        .btn-edit:hover {
+            background-color: #e0a800;
+        }
 
         .btn-delete {
             padding: 5px 10px;
@@ -93,7 +95,9 @@
             cursor: pointer;
         }
 
-        .btn-delete:hover { background-color: #c82333; }
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
 
         table {
             width: 100%;
@@ -145,6 +149,52 @@
             background-color: #f1f1f1;
             /* Hover efekat prilikom prelaska miša preko reda */
         }
+
+        /* Stilovi za Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 2px;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
     </style>
 </head>
 
@@ -157,12 +207,13 @@
             <input type="text" class="search-box" placeholder="Pretraži vozila po oznaci...">
             <button class="btn-advanced">Napredna pretraga</button>
         </div>
-        <button class="btn-add" onclick="addVehicle()">+ Dodaj vozilo</button>
+        <button class="btn-add" onclick="openAddModal()">+ Dodaj vozilo</button>
     </div>
 
     <table>
         <thead>
             <tr>
+                <th class="sortable" title="Klikni za sortiranje">ID Vozila</th>
                 <th class="sortable" title="Klikni za sortiranje">Vlasnik ID</th>
                 <th class="sortable" title="Klikni za sortiranje">Registarska oznaka</th>
                 <th class="sortable" title="Klikni za sortiranje">Tip</th>
@@ -179,8 +230,49 @@
         </tbody>
     </table>
 
+    <!-- Modal za dodavanje vozila -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <div id="modalTitle" class="modal-header">Novo vozilo</div>
+            <div class="form-group">
+                <label>ID Vozila:</label>
+                <input type="text" id="add-id" placeholder="v-10">
+            </div>
+            <div class="form-group">
+                <label>Vlasnik ID:</label>
+                <input type="text" id="add-owner">
+            </div>
+            <div class="form-group">
+                <label>Registracija:</label>
+                <input type="text" id="add-plate">
+            </div>
+            <div class="form-group">
+                <label>Tip:</label>
+                <input type="text" id="add-type" placeholder="car, bike...">
+            </div>
+            <div class="form-group">
+                <label>Marka:</label>
+                <input type="text" id="add-brand">
+            </div>
+            <div class="form-group">
+                <label>Model:</label>
+                <input type="text" id="add-model">
+            </div>
+            <div class="form-group">
+                <label>Boja:</label>
+                <input type="text" id="add-color">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn-edit" onclick="closeModal()">Otkaži</button>
+                <button id="btnSave" class="btn-add" onclick="submitVehicle()">Sačuvaj</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const API_BASE_VEHICLES = 'http://localhost:8000/api/delivery-subsystem/vehicles';
+        const API_BASE_VEHICLES = 'http://localhost:8000/api/delivery-subsystem/resources/vehicles';
+
+        let isEditMode = false;
 
         async function loadVehicles() {
             try {
@@ -188,11 +280,12 @@
                 const data = await response.json();
                 const tbody = document.querySelector('tbody');
                 tbody.innerHTML = '';
-                
+
                 if (data.vehicles) {
                     data.vehicles.forEach(vehicle => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
+                            <td>${vehicle.id}</td>
                             <td>${vehicle.owner_id || '/'}</td>
                             <td>${vehicle.license_plate}</td>
                             <td>${vehicle.type}</td>
@@ -202,8 +295,8 @@
                             <td>${vehicle.is_ready ? 'Da' : 'Ne'}</td>
                             <td>${vehicle.in_use ? 'Da' : 'Ne'}</td>
                             <td>
-                                <button class="btn-edit" onclick="editVehicle('${vehicle.license_plate}')">Izmeni</button>
-                                <button class="btn-delete" onclick="deleteVehicle('${vehicle.license_plate}')">Obriši</button>
+                                <button class="btn-edit" onclick="editVehicle('${vehicle.id}')">Izmeni</button>
+                                <button class="btn-delete" onclick="deleteVehicle('${vehicle.id}')">Obriši</button>
                             </td>
                         `;
                         tbody.appendChild(tr);
@@ -214,52 +307,77 @@
             }
         }
 
-        async function addVehicle() {
-            const owner_id = prompt('Unesite ID vlasnika (opciono):') || null;
-            const license_plate = prompt('Unesite registraciju (npr. BG-1234):');
-            if (!license_plate) return;
-            const type = prompt('Unesite tip (bike, car):');
-            const brand = prompt('Unesite marku:');
-            const model = prompt('Unesite model:');
-            const color = prompt('Unesite boju:');
-            
-            const payload = { owner_id, license_plate, type, brand, model, color, is_ready: true, description: '' };
-            
+        function openAddModal() {
+            isEditMode = false;
+            document.getElementById('modalTitle').innerText = 'Novo vozilo';
+            document.getElementById('add-id').value = '';
+            document.getElementById('add-id').readOnly = false;
+            document.getElementById('add-owner').value = '';
+            document.getElementById('add-plate').value = '';
+            document.getElementById('add-type').value = '';
+            document.getElementById('add-brand').value = '';
+            document.getElementById('add-model').value = '';
+            document.getElementById('add-color').value = '';
+            document.getElementById('addModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').style.display = 'none';
+        }
+
+        async function submitVehicle() {
+            const id = document.getElementById('add-id').value;
+            const owner_id = document.getElementById('add-owner').value || null;
+            const license_plate = document.getElementById('add-plate').value;
+            const type = document.getElementById('add-type').value;
+            const brand = document.getElementById('add-brand').value;
+            const model = document.getElementById('add-model').value;
+            const color = document.getElementById('add-color').value;
+
+            if (!id) return;
+            const url = isEditMode ? `${API_BASE_VEHICLES}/${id}/update` : API_BASE_VEHICLES;
+            const method = isEditMode ? 'PUT' : 'POST';
+            const payload = { id, owner_id, license_plate, type, brand, model, color, is_ready: true, description: '' };
+
             try {
-                await fetch(API_BASE_VEHICLES, {
-                    method: 'POST',
+                await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                closeModal();
                 loadVehicles();
             } catch (e) { console.error(e); }
         }
 
-        async function deleteVehicle(licensePlate) {
+        async function deleteVehicle(vehicleId) {
             if (!confirm('Da li ste sigurni da želite da obrišete ovo vozilo?')) return;
             try {
-                await fetch(`${API_BASE_VEHICLES}/${licensePlate}`, { method: 'DELETE' });
+                await fetch(`${API_BASE_VEHICLES}/${vehicleId}`, { method: 'DELETE' });
                 loadVehicles();
             } catch (e) { console.error(e); }
         }
 
-        async function editVehicle(licensePlate) {
-            const owner_id = prompt('Unesite novi ID vlasnika (opciono):') || null;
-            const type = prompt('Unesite novi tip (bike, car):');
-            if (!type) return;
-            const brand = prompt('Unesite novu marku:');
-            const model = prompt('Unesite novi model:');
-            const color = prompt('Unesite novu boju:');
-            
-            const payload = { owner_id, type, brand, model, color, is_ready: true, description: '' };
-            
+        async function editVehicle(vehicleId) {
+            isEditMode = true;
             try {
-                await fetch(`${API_BASE_VEHICLES}/${licensePlate}/update`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                loadVehicles();
+                const resp = await fetch(API_BASE_VEHICLES);
+                const data = await resp.json();
+                const v = data.vehicles.find(x => x.id === vehicleId);
+
+                if (!v) return;
+
+                document.getElementById('modalTitle').innerText = 'Izmena vozila';
+                document.getElementById('add-id').value = v.id;
+                document.getElementById('add-id').readOnly = true;
+                document.getElementById('add-owner').value = v.owner_id || '';
+                document.getElementById('add-plate').value = v.license_plate || '';
+                document.getElementById('add-type').value = v.type || '';
+                document.getElementById('add-brand').value = v.brand || '';
+                document.getElementById('add-model').value = v.model || '';
+                document.getElementById('add-color').value = v.color || '';
+
+                document.getElementById('addModal').style.display = 'block';
             } catch (e) { console.error(e); }
         }
 

@@ -31,6 +31,7 @@ def get_vehicles():
             vehicle_node = record["v"]
             is_in_use = record["is_in_use"]
             vehicles.append({
+                "id": vehicle_node["id"],
                 "owner_id": vehicle_node.get("owner_id"),
                 "type": vehicle_node["type"],
                 "license_plate": vehicle_node["license_plate"],
@@ -41,7 +42,7 @@ def get_vehicles():
                 "in_use": is_in_use,
                 "description": vehicle_node.get("description")
             })
-    return {"vehicles": vehicles}
+    return jsonify({"vehicles": vehicles})
 
 @resource_bp.route('/products')
 def get_products():
@@ -56,7 +57,7 @@ def get_products():
                 "description": product_node["description"],
                 "price": product_node["price"]
             })
-    return {"products": products}
+    return jsonify({"products": products})
 
 @resource_bp.route('/couriers')
 def get_couriers():
@@ -77,7 +78,7 @@ def get_couriers():
                 "salary": user_node.get("salary", 0.0),
                 "average_rating": user_node.get("average_rating", 0.0)
             })
-    return {"couriers": couriers}
+    return jsonify({"couriers": couriers})
 
         
 @resource_bp.route('/couriers/<courier_id>/update', methods=['PUT'])
@@ -119,14 +120,14 @@ def update_courier(courier_id):
         else:
             return jsonify({"error": "Courier not found"}), 404
         
-@resource_bp.route('/vehicles/<license_plate>/update', methods=['PUT'])
-def update_vehicle(license_plate):
+@resource_bp.route('/vehicles/<vehicle_id>/update', methods=['PUT'])
+def update_vehicle(vehicle_id):
     data = request.get_json()
     with driver.session() as session:
         result = session.run(
             """
-            MATCH (v:Vehicle {license_plate: $license_plate})
-            SET v.owner_id = $owner_id, v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model,
+            MATCH (v:Vehicle {id: $vehicle_id})
+            SET v.license_plate = $license_plate, v.owner_id = $owner_id, v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model,
             v.color = $color, v.description = $description
             WITH v
             OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
@@ -134,7 +135,8 @@ def update_vehicle(license_plate):
             WITH v, count(d) > 0 AS is_in_use
             RETURN v, is_in_use
             """,
-            license_plate=license_plate,
+            vehicle_id=vehicle_id,
+            license_plate=data.get("license_plate"),
             owner_id=data.get("owner_id"),
             type=data["type"],
             is_ready=data["is_ready"],
@@ -148,6 +150,7 @@ def update_vehicle(license_plate):
             vehicle_node = record["v"]
             is_in_use = record["is_in_use"]
             vehicle = {
+                "id": vehicle_node.get("id"),
                 "owner_id": vehicle_node.get("owner_id"),
                 "type": vehicle_node["type"],
                 "license_plate": vehicle_node["license_plate"],
@@ -209,9 +212,10 @@ def create_vehicle():
     with driver.session() as session:
         session.run(
             """
-            CREATE (v:Vehicle {owner_id: $owner_id, type: $type, license_plate: $license_plate, is_ready: $is_ready,
+            CREATE (v:Vehicle {id: $id, owner_id: $owner_id, type: $type, license_plate: $license_plate, is_ready: $is_ready,
             brand: $brand, model: $model, color: $color, description: $description})
             """,
+            id=data.get("id"),
             owner_id=data.get("owner_id"),
             type=data["type"],
             license_plate=data["license_plate"],
@@ -258,12 +262,12 @@ def delete_product(product_id):
         else:
             return jsonify({"error": "Product not found"}), 404
     
-@resource_bp.route('/vehicles/<license_plate>', methods=['DELETE'])
-def delete_vehicle(license_plate):
+@resource_bp.route('/vehicles/<vehicle_id>', methods=['DELETE'])
+def delete_vehicle(vehicle_id):
     with driver.session() as session:
         result = session.run(
-            "MATCH (v:Vehicle {license_plate: $license_plate}) DETACH DELETE v RETURN COUNT(v) AS deleted_count",
-            license_plate=license_plate
+            "MATCH (v:Vehicle {id: $vehicle_id}) DETACH DELETE v RETURN COUNT(v) AS deleted_count",
+            vehicle_id=vehicle_id
         )
         record = result.single()
         if record["deleted_count"] > 0:
