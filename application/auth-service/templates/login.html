@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <form id="login-form">
+            <h2>Prijavi se</h2>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Lozinka</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+            <p id="error-message" class="error-message"></p>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('error-message');
+
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Sačuvaj token i preusmeri korisnika
+                    localStorage.setItem('jwt_token', data.access_token);
+                    errorMessage.textContent = 'Uspešan login! Preusmeravanje...';
+                    errorMessage.style.color = 'green';
+                    // Ovde bi trebalo da ide preusmeravanje na odgovarajući panel
+                    // window.location.href = '/';
+                } else {
+                    const errorData = await response.json();
+                    errorMessage.textContent = errorData.error || 'Login nije uspeo.';
+                    errorMessage.style.color = 'red';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Došlo je do greške. Proverite konekciju.';
+                errorMessage.style.color = 'red';
+            }
+        });
+    </script>
+</body>
+</html>
