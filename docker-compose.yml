@@ -53,28 +53,37 @@ services:
   auth-service:
     build: ./application/auth-service/
     restart: on-failure
-    volumes:
-      - ./application/auth-service:/app
     command: flask run --host=0.0.0.0 --port=8080
     depends_on:
       - neo4j
+    develop:
+      watch:
+        - action: sync
+          path: ./application/auth-service
+          target: /app
+          ignore:
+            - "**/.*"
 
   delivery-subsystem:
     build: ./application/delivery-subsystem/
     restart: on-failure
-    volumes:
-      - ./application/delivery-subsystem:/app
     command: flask run --host=0.0.0.0 --port=8080
     depends_on:
       - neo4j
       - influxdb2
       - redisdb
+    develop:
+      watch:
+        - action: sync
+          path: ./application/delivery-subsystem
+          target: /app
+          ignore:
+            - "**/.*"
 
   gateway:
     build: ./gateway
     restart: on-failure
     volumes:
-      - ./gateway:/app
       - ./application/auth-service:/auth-app
       - ./application/delivery-subsystem:/delivery-app
     ports:
@@ -89,3 +98,11 @@ services:
     depends_on:
       - delivery-subsystem
       - auth-service
+    develop:
+      watch:
+        - action: sync
+          path: ./gateway
+          target: /app
+          ignore:
+            - "**/.*"
+        
