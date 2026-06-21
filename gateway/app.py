@@ -1,60 +1,75 @@
-import requests
+from flask import Flask, Response, request
 import os
-from flask import Flask, request, Response
+import requests
 
 app = Flask(__name__)
 
-# Definisanje URL-ova za svaki podsistem u Docker mreži
-DELIVERY_SUBSYSTEM_URL = os.environ.get("DELIVERY_SUBSYSTEM_URL", "http://delivery-subsystem:8080")
+AUTH_SERVICE_URL = os.environ.get('AUTH_SERVICE_URL', 'http://auth-service:8080')
+DELIVERY_SUBSYSTEM_URL = os.environ.get('DELIVERY_SUBSYSTEM_URL', 'http://delivery-subsystem:8080')
 
-# Kada dodaš nove podsisteme, dodaj ih ovde:
-# USER_SUBSYSTEM_URL = os.environ.get("USER_SUBSYSTEM_URL", "http://user-subsystem:8080")
-
-def forward_request(base_url, path):
+def proxy_request(base_url, path):
     url = f"{base_url}/{path}"
-    # Prosleđivanje zahteva sa svim zaglavljima, podacima i parametrima
-    resp = requests.request(
-        method=request.method,
-        url=url,
-        headers={key: value for (key, value) in request.headers if key != 'Host'},
-        data=request.get_data(),
-        cookies=request.cookies,
-        allow_redirects=False,
-        params=request.args
-    )
-
-    # Filtriranje headera (neophodno da se izbegnu greške pri proksiranju)
-    excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-    headers = [(name, value) for (name, value) in resp.raw.headers.items()
-               if name.lower() not in excluded_headers]
-
-    flask_response = Response(resp.content, resp.status_code, headers)
+    print(f"--- Proxying request to: {url} ---")
     
-    # Dodavanje CORS zaglavlja za odgovore sa podsistema
-    flask_response.headers['Access-Control-Allow-Origin'] = '*'
-    flask_response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    flask_response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, Origin, X-Requested-With'
-    
-    return flask_response
-
-@app.route('/api/delivery-subsystem/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
-@app.route('/api/delivery-subsystem/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
-def proxy_delivery(path):
-    # Preflight zahtevi za CORS (kad browser proverava da li sme da pošalje POST/PUT/DELETE)
-    if request.method == 'OPTIONS':
-        response = Response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, Origin, X-Requested-With'
-        return response
+    # Prosleđivanje metode, zaglavlja i tela zahteva
+    try:
+        resp = requests.request(
+            method=request.method,
+            url=url,
+            headers={key: value for (key, value) in request.headers if key != 'Host'},
+            data=request.get_data(),
+            cookies=request.cookies,
+            allow_redirects=False,
+            params=request.args
+        )
         
-    return forward_request(DELIVERY_SUBSYSTEM_URL, path)
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        headers = [(name, value) for (name, value) in resp.raw.headers.items()
+                   if name.lower() not in excluded_headers]
 
-# Primer rute za budući podsistem:
-# @app.route('/api/user/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE'])
-# @app.route('/api/user/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
-# def proxy_user(path):
-#     return forward_request(USER_SUBSYSTEM_URL, path)
+        return Response(resp.content, resp.status_code, headers)
+    except requests.exceptions.RequestException as e:
+        print(f"--- Proxy error: {e} ---")
+        import traceback
+        traceback.print_exc()
+        return Response(f"Proxy error: {str(e)}", status=502)
+
+@app.route('/')
+def serve_login():
+    return proxy_request(AUTH_SERVICE_URL, "")
+
+@app.route('/api/auth-service/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy_auth_api(path):
+    return proxy_request(AUTH_SERVICE_URL, path)
+
+@app.route('/manager/')
+@app.route('/manager/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy_manager(path=""):
+    return proxy_request(DELIVERY_SUBSYSTEM_URL, f"manager/{path}")
+
+@app.route('/courier/')
+@app.route('/courier/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy_courier(path=""):
+    return proxy_request(DELIVERY_SUBSYSTEM_URL, f"courier/{path}")
+
+@app.route('/api/delivery-subsystem/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@app.route('/api/delivery-service/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy_delivery_api(path):
+    return proxy_request(DELIVERY_SUBSYSTEM_URL, path)
+
+@app.route('/static/<path:path>')
+def proxy_static(path):
+    # Pokušavamo prvo auth-service static, pa delivery-subsystem static
+    # U realnom sistemu, statički fajlovi bi obično bili servirani direktno sa diska ili preko namenskog servisa
+    # Ovde ćemo probati auth-service jer je on prvi u redu
+    return proxy_request(AUTH_SERVICE_URL, f"static/{path}")
+
+@app.route('/favicon.ico')
+def favicon():
+    # Pokušavamo da nađemo favicon u bilo kom od servisa ako postoji, 
+    # ili vraćamo 204 da izbegnemo 404 grešku u browseru.
+    # Neki browseri ignorišu 204 za favicon i stalno ga traže.
+    return Response(status=204, mimetype='image/x-icon')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)

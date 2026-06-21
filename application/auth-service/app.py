@@ -1,12 +1,13 @@
 import os
-from flask import Flask, jsonify, request, Blueprint
+from flask import Flask, jsonify, request, Blueprint, render_template
 from neo4j import GraphDatabase
 from flask_jwt_extended import create_access_token, JWTManager
 import uuid
 
-auth_bp = Blueprint('auth', __name__)
+# Inicijalizacija aplikacije sa putanjama do templates i static foldera
+app = Flask(__name__, template_folder='templates', static_folder='static')
 
-app = Flask(__name__)
+auth_bp = Blueprint('auth', __name__)
 
 # JWT Konfiguracija
 app.config['JWT_SECRET_KEY'] = 'dev-secret-key' # Consider using a more secure key in production
@@ -25,9 +26,10 @@ except Exception:
     # if Neo4j isn't ready yet, ignore — it will be created later
     pass
 
+# Ruta za prikaz login stranice
 @app.route("/")
-def hello():
-    return jsonify({"status": "Auth Subsystem is running"}), 200
+def index():
+    return render_template('login.html')
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -40,7 +42,9 @@ def login():
         record = result.single()
         if record:
             user_node = record["u"]
-            access_token = create_access_token(identity=user_node["id"])
+            # Dodajemo tip naloga u token
+            additional_claims = {"account_type": user_node["account_type"]}
+            access_token = create_access_token(identity=user_node["id"], additional_claims=additional_claims)
             return jsonify(access_token=access_token), 200
         else:
             return jsonify({"error": "Invalid email or password"}), 401

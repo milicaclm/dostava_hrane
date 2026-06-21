@@ -8,23 +8,27 @@ body {
     margin: 0;
 }
 
-.login-container {
-    background-color: white;
+.content-block {
+    /* Uklonjeno width: 100% i max-width */
+    width: 360px; /* Fiksna širina za uredan izgled */
     padding: 40px;
+    background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 400px;
+    text-align: center;
+    box-sizing: border-box; /* Važno da padding ne poveća širinu */
 }
 
-h2 {
-    text-align: center;
+h1 {
+    margin-top: 0;
     margin-bottom: 20px;
     color: #333;
+    font-size: 2em;
 }
 
 .form-group {
     margin-bottom: 15px;
+    text-align: left;
 }
 
 .form-group label {
@@ -57,8 +61,9 @@ button:hover {
     background-color: #0056b3;
 }
 
-.error-message {
+.message {
     margin-top: 15px;
     text-align: center;
     font-size: 14px;
+    min-height: 20px; /* Rezerviše prostor za poruku */
 }

@@ -13,6 +13,11 @@ driver = GraphDatabase.driver(
     auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
 )
 
+def get_user_role(session, user_id):
+    result = session.run("MATCH (u:User {id: $user_id}) RETURN u.account_type AS role", user_id=user_id)
+    record = result.single()
+    return record["role"] if record else None
+
 try:
     with driver.session() as _session:
         # ensure unique id constraint exists
@@ -25,8 +30,14 @@ except Exception:
 
 
 @user_bp.route('/')
+@jwt_required()
 def get_users():
+    current_user_id = get_jwt_identity()
     with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_role != 'manager':
+            return jsonify({"error": "Forbidden"}), 403
+
         result = session.run("MATCH (u:User) RETURN u")
         users = []
         for record in result:
@@ -43,12 +54,12 @@ def get_users():
                 "car_license": user_node.get("car_license"),
                 "salary": user_node.get("salary"),
                 "average_rating": user_node.get("average_rating"),
-                "is_active": user_node["is_active"],
-                "password": user_node["password"]
+                "is_active": user_node["is_active"]
             })
     return jsonify(users)
 
 @user_bp.route('/<user_id>')
+@jwt_required()
 def get_user(user_id):
     with driver.session() as session:
         result = session.run("MATCH (u:User {id: $user_id}) RETURN u", user_id=user_id)
@@ -76,7 +87,14 @@ def get_user(user_id):
 
 
 @user_bp.route('/<user_id>', methods=['PUT'])
+@jwt_required()
 def update_user(user_id):
+    current_user_id = get_jwt_identity()
+    with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_id != current_user_id and user_role != 'manager':
+            return jsonify({"error": "Forbidden"}), 403
+
     data = request.get_json()
     with driver.session() as session:
         result = session.run(
@@ -122,9 +140,16 @@ def update_user(user_id):
             return jsonify({"error": "User not found"}), 404
 
 @user_bp.route('/<user_id>', methods=['DELETE'])
+@jwt_required()
 def delete_user(user_id):
+    current_user_id = get_jwt_identity()
     with driver.session() as session:
-        result = session.run("MATCH (u:User {id: $user_id}) DELETE u RETURN COUNT(u) AS deleted_count", user_id=user_id)
+        user_role = get_user_role(session, current_user_id)
+        if user_id != current_user_id and user_role != 'manager':
+            return jsonify({"error": "Forbidden"}), 403
+
+    with driver.session() as session:
+        result = session.run("MATCH (u:User {id: $user_id}) DETACH DELETE u RETURN COUNT(u) AS deleted_count", user_id=user_id)
         record = result.single()
         if record["deleted_count"] > 0:
             return jsonify({"message": "User deleted successfully"})
@@ -179,6 +204,11 @@ def register():
 @jwt_required()
 def assign_vehicle(user_id, license_plate):
     current_user_id = get_jwt_identity()
+    with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_id != current_user_id and user_role != 'manager':
+            return jsonify({"error": "Forbidden"}), 403
+
     with driver.session() as session:
         user_rec = session.run(
             "MATCH (u:User {id: $user_id}) WHERE u.account_type IN ['courier','delivery'] RETURN u",

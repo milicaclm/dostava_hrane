@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from redis import Redis
 from neo4j import GraphDatabase
 from influxdb_client import InfluxDBClient
@@ -19,7 +19,7 @@ jwt = JWTManager(app)
 
 # Inicijalizacija zajedničkih resursa
 driver = GraphDatabase.driver(
-    os.environ.get("NEO4J_URI", "bolt://neo4j:7687"), 
+    os.environ.get("NEO4J_URI", "bolt://neo4j:7687"),
     auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
 )
 
@@ -39,6 +39,29 @@ influx_client = InfluxDBClient(
 def hello():
     return jsonify({"status": "Delivery Subsystem is running"}), 200
 
+# --- Rutiranje Frontend Aplikacija ---
+
+@app.route('/manager/')
+def serve_manager_index():
+    return send_from_directory('delivery-manager-front/templates', 'index.html')
+
+@app.route('/manager/<path:path>')
+def serve_manager_files(path):
+    if path.startswith('static/'):
+        return send_from_directory('delivery-manager-front', path)
+    return send_from_directory('delivery-manager-front/templates', path)
+
+@app.route('/courier/')
+def serve_courier_index():
+    return send_from_directory('courier-front/templates', 'index.html')
+
+@app.route('/courier/<path:path>')
+def serve_courier_files(path):
+    if path.startswith('static/'):
+        return send_from_directory('courier-front', path)
+    return send_from_directory('courier-front/templates', path)
+
+# --- Registracija API Blueprints ---
 
 app.register_blueprint(delivery_bp, url_prefix='/deliveries')
 app.register_blueprint(location_bp, url_prefix='/locations')

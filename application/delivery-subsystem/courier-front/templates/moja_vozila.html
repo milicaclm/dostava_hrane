@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Moja Vozila</title>
     <style>
+        /* ... (svi stilovi ostaju isti) ... */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -226,7 +227,6 @@
                 <label>ID Vozila:</label>
                 <input type="text" id="add-id" placeholder="v-10">
             </div>
-            <!-- Uklonjen unos Vlasnik ID jer se automatski dodeljuje kuriru -->
             <div class="form-group">
                 <label>Registracija:</label>
                 <input type="text" id="add-plate">
@@ -255,38 +255,61 @@
     </div>
 
     <script>
-        const API_BASE_VEHICLES = 'http://localhost:8000/api/delivery-subsystem/resources/vehicles';
-
-        // OVO JE PRIVREMENA VREDNOST DOK SE NE IMPLEMENTIRA JWT NA FRONTENDU
-        // U realnom scenariju, ovaj ID bi se dekodirao iz JWT tokena nakon logina
-        const CURRENT_USER_ID = "me";
-
+        const API_AUTH_URL = 'http://localhost:8000/api/auth-service/auth/login';
+        const API_VEHICLES_URL = 'http://localhost:8000/api/delivery-subsystem/resources/vehicles';
+        const CURRENT_USER_ID = "user-del-1"; // ID korisnika Marko Marković
+        let jwtToken = null; // Globalna promenljiva za čuvanje tokena
         let isEditMode = false;
 
-        async function loadVehicles() {
+        async function loginAndFetchVehicles() {
             try {
-                // Dodajemo owner_id filter u upit
-                const response = await fetch(`${API_BASE_VEHICLES}?owner_id=${CURRENT_USER_ID}`);
+                const loginResponse = await fetch(API_AUTH_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'marko@dostava.com', password: 'pass1234' })
+                });
+
+                if (!loginResponse.ok) {
+                    throw new Error('Login failed!');
+                }
+
+                const loginData = await loginResponse.json();
+                jwtToken = loginData.access_token; // Sačuvaj token
+
+                // Sada kada imamo token, učitavamo vozila
+                await loadVehicles();
+            } catch (error) {
+                console.error('Greška prilikom logina ili učitavanja vozila:', error);
+                document.querySelector('tbody').innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Greška: Nije moguće dobaviti podatke. Proverite da li je backend pokrenut.</td></tr>`;
+            }
+        }
+
+        async function loadVehicles() {
+            if (!jwtToken) {
+                console.error("Nema JWT tokena za autorizaciju.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_VEHICLES_URL}?owner_id=${CURRENT_USER_ID}`, {
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
                 const data = await response.json();
                 const tbody = document.querySelector('tbody');
                 tbody.innerHTML = '';
 
-                if (data.vehicles) {
+                if (data.vehicles && data.vehicles.length > 0) {
                     data.vehicles.forEach(vehicle => {
                         const tr = document.createElement('tr');
 
-                        // Provera vlasništva za prikaz dugmića
-                        let actionsHtml = '';
-                        if (vehicle.owner_id === CURRENT_USER_ID || (CURRENT_USER_ID === "me" && vehicle.owner_id != null)) {
-                             // Prikazuje akcije samo za svoja vozila.
-                             // Uslov (CURRENT_USER_ID === "me" && vehicle.owner_id != null) je tu privremeno zbog hardkodovanog "me" iznad,
-                             // da bi simulirao vlasništvo nad svojim vozilom dok ne uvedete prave ID-jeve.
+                        let actionsHtml = `<span style="color: #aaa; font-style: italic;">Službeno vozilo</span>`;
+                        if (vehicle.owner_id === CURRENT_USER_ID) {
                             actionsHtml = `
                                 <button class="btn-edit" onclick="editVehicle('${vehicle.id}')">Izmeni</button>
                                 <button class="btn-delete" onclick="deleteVehicle('${vehicle.id}')">Obriši</button>
                             `;
-                        } else {
-                            actionsHtml = `<span style="color: #aaa; font-style: italic;">Službeno vozilo</span>`;
                         }
 
                         tr.innerHTML = `
@@ -303,6 +326,8 @@
                         `;
                         tbody.appendChild(tr);
                     });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;">Nema dostupnih vozila.</td></tr>`;
                 }
             } catch (error) {
                 console.error('Greška pri učitavanju vozila:', error);
@@ -335,35 +360,42 @@
             const color = document.getElementById('add-color').value;
 
             if (!id) return;
-            const url = isEditMode ? `${API_BASE_VEHICLES}/${id}/update` : API_BASE_VEHICLES;
+            const url = isEditMode ? `${API_VEHICLES_URL}/${id}/update` : API_VEHICLES_URL;
             const method = isEditMode ? 'PUT' : 'POST';
 
-            // Šaljemo "me" kao owner_id da bi backend znao da dodeli vozilo trenutnom korisniku
             const payload = { id, owner_id: "me", license_plate, type, brand, model, color, is_ready: true, description: '' };
 
             try {
                 await fetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwtToken}`
+                    },
                     body: JSON.stringify(payload)
                 });
                 closeModal();
-                loadVehicles();
+                await loadVehicles();
             } catch (e) { console.error(e); }
         }
 
         async function deleteVehicle(vehicleId) {
             if (!confirm('Da li ste sigurni da želite da obrišete ovo vozilo?')) return;
             try {
-                await fetch(`${API_BASE_VEHICLES}/${vehicleId}`, { method: 'DELETE' });
-                loadVehicles();
+                await fetch(`${API_VEHICLES_URL}/${vehicleId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+                await loadVehicles();
             } catch (e) { console.error(e); }
         }
 
         async function editVehicle(vehicleId) {
             isEditMode = true;
             try {
-                const resp = await fetch(`${API_BASE_VEHICLES}?owner_id=${CURRENT_USER_ID}`);
+                const resp = await fetch(`${API_VEHICLES_URL}?owner_id=${CURRENT_USER_ID}`, {
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
                 const data = await resp.json();
                 const v = data.vehicles.find(x => x.id === vehicleId);
 
@@ -383,8 +415,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadVehicles();
+            loginAndFetchVehicles(); // Pokrećemo ceo proces pri učitavanju stranice
 
+            // ... (ostatak koda za sortiranje ostaje isti) ...
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;
                 th.addEventListener('click', () => {

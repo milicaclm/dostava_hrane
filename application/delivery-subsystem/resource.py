@@ -11,6 +11,11 @@ driver = GraphDatabase.driver(
     auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
 )
 
+def get_user_role(session, user_id):
+    result = session.run("MATCH (u:User {id: $user_id}) RETURN u.account_type AS role", user_id=user_id)
+    record = result.single()
+    return record["role"] if record else None
+
 @resource_bp.route('/')
 def hello():
     return "Hello, Resource Service!"
@@ -18,19 +23,29 @@ def hello():
 @resource_bp.route('/vehicles')
 @jwt_required()
 def get_vehicles():
-    current_user_id = get_jwt_identity()
+    owner_id_filter = request.args.get('owner_id')
+
     with driver.session() as session:
-        result = session.run(
-            """
-            MATCH (v:Vehicle)
-            WHERE v.owner_id IS NULL OR v.owner_id = $current_user_id
-            OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
-            WHERE d.status IN ['accepted', 'in_transit']
-            WITH v, count(d) > 0 AS is_in_use
-            RETURN v, is_in_use
-            """,
-            current_user_id=current_user_id
-        )
+        params = {}
+        
+        # Osnovni upit koji dohvata sva vozila
+        query_base = "MATCH (v:Vehicle)"
+
+        # Ako je prosleđen filter za vlasnika, modifikuj upit
+        if owner_id_filter:
+            query_base += " WHERE v.owner_id = $owner_id OR v.owner_id IS NULL"
+            params['owner_id'] = owner_id_filter
+        
+        # Nastavak upita za proveru da li je vozilo u upotrebi
+        query = f"""
+        {query_base}
+        OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
+        WHERE d.status IN ['accepted', 'in_transit']
+        WITH v, count(d) > 0 AS is_in_use
+        RETURN v, is_in_use
+        """
+        
+        result = session.run(query, params)
         vehicles = []
         for record in result:
             vehicle_node = record["v"]
@@ -126,13 +141,34 @@ def update_courier(courier_id):
             return jsonify({"error": "Courier not found"}), 404
         
 @resource_bp.route('/vehicles/<vehicle_id>/update', methods=['PUT'])
+@jwt_required()
 def update_vehicle(vehicle_id):
+    current_user_id = get_jwt_identity()
     data = request.get_json()
     with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if not user_role:
+            return jsonify({"error": "User role not found."}), 403
+
+        check_result = session.run("MATCH (v:Vehicle {id: $vehicle_id}) RETURN v.owner_id AS owner_id", vehicle_id=vehicle_id)
+        vehicle_record = check_result.single()
+
+        if not vehicle_record:
+            return jsonify({"error": "Vehicle not found"}), 404
+
+        vehicle_owner_id = vehicle_record["owner_id"]
+
+        # Check permissions
+        is_owner = (vehicle_owner_id == current_user_id)
+        is_manager_and_unowned = (user_role == 'manager' and vehicle_owner_id is None)
+
+        if not is_owner and not is_manager_and_unowned:
+            return jsonify({"error": "Forbidden"}), 403
+
         result = session.run(
             """
             MATCH (v:Vehicle {id: $vehicle_id})
-            SET v.license_plate = $license_plate, v.owner_id = $owner_id, v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model,
+            SET v.license_plate = $license_plate, v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model,
             v.color = $color, v.description = $description
             WITH v
             OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
@@ -142,7 +178,6 @@ def update_vehicle(vehicle_id):
             """,
             vehicle_id=vehicle_id,
             license_plate=data.get("license_plate"),
-            owner_id=data.get("owner_id"),
             type=data["type"],
             is_ready=data["is_ready"],
             brand=data.get("brand"),
@@ -168,7 +203,7 @@ def update_vehicle(vehicle_id):
             }
             return jsonify(vehicle)
         else:
-            return jsonify({"error": "Vehicle not found"}), 404
+            return jsonify({"error": "Vehicle not found or update failed"}), 404
         
 @resource_bp.route('/products/<product_id>/update', methods=['PUT'])
 def update_product(product_id):
@@ -212,16 +247,36 @@ def create_product():
     return jsonify({"message": "Product created successfully"}), 201
 
 @resource_bp.route('/vehicles', methods=['POST'])
+@jwt_required()
 def create_vehicle():
+    current_user_id = get_jwt_identity()
     data = request.get_json()
+    
     with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if not user_role:
+            return jsonify({"error": "User role not found."}), 403
+
+        owner_id_param = data.get("owner_id")
+        final_owner_id = None
+
+        if owner_id_param == "me":
+            final_owner_id = current_user_id
+        elif owner_id_param is None:
+            if user_role != 'manager':
+                return jsonify({"error": "Forbidden: Only managers can create company vehicles."}), 403
+            # final_owner_id remains None for company vehicle
+        else:
+            # Creating vehicle for a specific user is not allowed in this logic
+            return jsonify({"error": "Forbidden: Cannot create a vehicle for another user."}), 403
+
         session.run(
             """
             CREATE (v:Vehicle {id: $id, owner_id: $owner_id, type: $type, license_plate: $license_plate, is_ready: $is_ready,
             brand: $brand, model: $model, color: $color, description: $description})
             """,
             id=data.get("id"),
-            owner_id=data.get("owner_id"),
+            owner_id=final_owner_id,
             type=data["type"],
             license_plate=data["license_plate"],
             is_ready=data["is_ready"],
@@ -268,8 +323,32 @@ def delete_product(product_id):
             return jsonify({"error": "Product not found"}), 404
     
 @resource_bp.route('/vehicles/<vehicle_id>', methods=['DELETE'])
+@jwt_required()
 def delete_vehicle(vehicle_id):
+    current_user_id = get_jwt_identity()
     with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if not user_role:
+            return jsonify({"error": "User role not found."}), 403
+
+        check_result = session.run(
+            "MATCH (v:Vehicle {id: $vehicle_id}) RETURN v.owner_id AS owner_id",
+            vehicle_id=vehicle_id
+        )
+        vehicle_record = check_result.single()
+
+        if not vehicle_record:
+            return jsonify({"error": "Vehicle not found"}), 404
+
+        vehicle_owner_id = vehicle_record["owner_id"]
+
+        # Check permissions
+        is_owner = (vehicle_owner_id == current_user_id)
+        is_manager_and_unowned = (user_role == 'manager' and vehicle_owner_id is None)
+
+        if not is_owner and not is_manager_and_unowned:
+            return jsonify({"error": "Forbidden"}), 403
+
         result = session.run(
             "MATCH (v:Vehicle {id: $vehicle_id}) DETACH DELETE v RETURN COUNT(v) AS deleted_count",
             vehicle_id=vehicle_id
@@ -278,7 +357,7 @@ def delete_vehicle(vehicle_id):
         if record["deleted_count"] > 0:
             return jsonify({"message": "Vehicle deleted successfully"})
         else:
-            return jsonify({"error": "Vehicle not found"}), 404
+            return jsonify({"error": "Vehicle not found or deletion failed"}), 404
     
 @resource_bp.route('/couriers/<courier_id>', methods=['DELETE'])
 def delete_courier(courier_id):
@@ -292,4 +371,3 @@ def delete_courier(courier_id):
             return jsonify({"message": "Courier deleted successfully"})
         else:
             return jsonify({"error": "Courier not found"}), 404
-        
