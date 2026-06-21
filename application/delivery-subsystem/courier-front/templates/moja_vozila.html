@@ -241,10 +241,7 @@
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div id="modalTitle" class="modal-header">Novo moje vozilo</div>
-            <div class="form-group">
-                <label>ID Vozila:</label>
-                <input type="text" id="add-id" placeholder="v-10">
-            </div>
+            <input type="hidden" id="add-id">
             <div class="form-group">
                 <label>Registracija:</label>
                 <input type="text" id="add-plate">
@@ -356,7 +353,6 @@
             isEditMode = false;
             document.getElementById('modalTitle').innerText = 'Novo moje vozilo';
             document.getElementById('add-id').value = '';
-            document.getElementById('add-id').readOnly = false;
             document.getElementById('add-plate').value = '';
             document.getElementById('add-type').value = '';
             document.getElementById('add-brand').value = '';
@@ -377,7 +373,7 @@
             const model = document.getElementById('add-model').value;
             const color = document.getElementById('add-color').value;
 
-            if (!id) return;
+            if (isEditMode && !id) return;
             const url = isEditMode ? `${API_VEHICLES_URL}/${id}/update` : API_VEHICLES_URL;
             const method = isEditMode ? 'PUT' : 'POST';
 
@@ -421,7 +417,6 @@
 
                 document.getElementById('modalTitle').innerText = 'Izmena vozila';
                 document.getElementById('add-id').value = v.id;
-                document.getElementById('add-id').readOnly = true;
                 document.getElementById('add-plate').value = v.license_plate || '';
                 document.getElementById('add-type').value = v.type || '';
                 document.getElementById('add-brand').value = v.brand || '';
