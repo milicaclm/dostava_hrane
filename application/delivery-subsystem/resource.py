@@ -1,5 +1,6 @@
 #servis za menadžment resursima
 import os
+import uuid
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from neo4j import GraphDatabase
@@ -145,6 +146,11 @@ def update_courier(courier_id):
 def update_vehicle(vehicle_id):
     current_user_id = get_jwt_identity()
     data = request.get_json()
+    
+    # Validacija
+    if not data.get("type") or not data.get("license_plate"):
+        return jsonify({"error": "Type and License Plate are required"}), 400
+
     with driver.session() as session:
         user_role = get_user_role(session, current_user_id)
         if not user_role:
@@ -178,8 +184,8 @@ def update_vehicle(vehicle_id):
             """,
             vehicle_id=vehicle_id,
             license_plate=data.get("license_plate"),
-            type=data["type"],
-            is_ready=data["is_ready"],
+            type=data["type"].lower(),
+            is_ready=data.get("is_ready", True),
             brand=data.get("brand"),
             model=data.get("model"),
             color=data.get("color"),
@@ -236,21 +242,53 @@ def update_product(product_id):
 @resource_bp.route('/products', methods=['POST'])
 def create_product():
     data = request.get_json()
+    product_id = data.get("id")
+    if not product_id:
+        return jsonify({"error": "Product ID is required"}), 400
     with driver.session() as session:
         session.run(
             "CREATE (p:Product {id: $id, name: $name, description: $description, price: $price})",
-            id=data["id"],
+            id=product_id,
             name=data["name"],
             description=data["description"],
             price=data["price"]
         )
     return jsonify({"message": "Product created successfully"}), 201
 
+@resource_bp.route('/couriers', methods=['POST'])
+def create_courier():
+    data = request.get_json()
+    courier_id = data.get("id")
+    if not courier_id:
+        return jsonify({"error": "Courier ID is required"}), 400
+    with driver.session() as session:
+        session.run(
+            "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, account_type: 'courier', is_active: $is_active, password: $password, motorcycle_license: $motorcycle_license, car_license: $car_license, salary: $salary, average_rating: $average_rating})",
+            id=courier_id,
+            name=data["name"],
+            surname=data["surname"],
+            email=data["email"],
+            phone_number=data["phone_number"],
+            is_active=data.get("is_active", True),
+            password=data.get("password", "pass1234"),
+            motorcycle_license=data.get("motorcycle_license", False),
+            car_license=data.get("car_license", False),
+            salary=data.get("salary", 0.0),
+            average_rating=data.get("average_rating", 0.0)
+        )
+    return jsonify({"message": "Courier created successfully"}), 201
+
 @resource_bp.route('/vehicles', methods=['POST'])
 @jwt_required()
 def create_vehicle():
     current_user_id = get_jwt_identity()
     data = request.get_json()
+
+    # Validacija
+    if not data.get("type") or not data.get("license_plate"):
+        return jsonify({"error": "Type and License Plate are required"}), 400
+    
+    vehicle_id = f"v-{uuid.uuid4().hex[:8]}"
     
     with driver.session() as session:
         user_role = get_user_role(session, current_user_id)
@@ -264,10 +302,9 @@ def create_vehicle():
             final_owner_id = current_user_id
         elif owner_id_param is None:
             if user_role != 'manager':
-                return jsonify({"error": "Forbidden: Only managers can create company vehicles."}), 403
-            # final_owner_id remains None for company vehicle
+                return jsonify({"error": "Forbidden: Only managers can create company vehicles without owner."}), 403
+            final_owner_id = None
         else:
-            # Creating vehicle for a specific user is not allowed in this logic
             return jsonify({"error": "Forbidden: Cannot create a vehicle for another user."}), 403
 
         session.run(
@@ -275,37 +312,18 @@ def create_vehicle():
             CREATE (v:Vehicle {id: $id, owner_id: $owner_id, type: $type, license_plate: $license_plate, is_ready: $is_ready,
             brand: $brand, model: $model, color: $color, description: $description})
             """,
-            id=data.get("id"),
+            id=vehicle_id,
             owner_id=final_owner_id,
-            type=data["type"],
+            type=data["type"].lower(),
             license_plate=data["license_plate"],
-            is_ready=data["is_ready"],
+            is_ready=data.get("is_ready", True),
             brand=data.get("brand"),
             model=data.get("model"),
             color=data.get("color"),
             description=data.get("description")
         )
-    return jsonify({"message": "Vehicle created successfully"}), 201
+    return jsonify({"message": "Vehicle created successfully", "id": vehicle_id}), 201
 
-@resource_bp.route('/couriers', methods=['POST'])
-def create_courier():
-    data = request.get_json()
-    with driver.session() as session:
-        session.run(
-            "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, account_type: 'courier', is_active: $is_active, password: $password, motorcycle_license: $motorcycle_license, car_license: $car_license, salary: $salary, average_rating: $average_rating})",
-            id=data["id"],
-            name=data["name"],
-            surname=data["surname"],
-            email=data["email"],
-            phone_number=data["phone_number"],
-            is_active=data.get("is_active", True),
-            password=data.get("password", "pass1234"),
-            motorcycle_license=data.get("motorcycle_license", False),
-            car_license=data.get("car_license", False),
-            salary=data.get("salary", 0.0),
-            average_rating=data.get("average_rating", 0.0)
-        )
-    return jsonify({"message": "Courier created successfully"}), 201
 
 # delete
 

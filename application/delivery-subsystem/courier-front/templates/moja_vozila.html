@@ -241,14 +241,21 @@
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div id="modalTitle" class="modal-header">Novo moje vozilo</div>
-            <input type="hidden" id="add-id">
+            <div class="form-group" id="id-group" style="display: none;">
+                <label>ID Vozila:</label>
+                <input type="text" id="add-id" readonly>
+            </div>
             <div class="form-group">
                 <label>Registracija:</label>
                 <input type="text" id="add-plate">
             </div>
             <div class="form-group">
                 <label>Tip:</label>
-                <input type="text" id="add-type" placeholder="car, bike...">
+                <select id="add-type">
+                    <option value="bicycle">Bicycle</option>
+                    <option value="car">Car</option>
+                    <option value="motorcycle">Motorcycle</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>Marka:</label>
@@ -352,17 +359,14 @@
         function openAddModal() {
             isEditMode = false;
             document.getElementById('modalTitle').innerText = 'Novo moje vozilo';
+            document.getElementById('id-group').style.display = 'none'; // Sakrij ID pri kreiranju
             document.getElementById('add-id').value = '';
             document.getElementById('add-plate').value = '';
-            document.getElementById('add-type').value = '';
+            document.getElementById('add-type').value = 'bicycle';
             document.getElementById('add-brand').value = '';
             document.getElementById('add-model').value = '';
             document.getElementById('add-color').value = '';
             document.getElementById('addModal').style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('addModal').style.display = 'none';
         }
 
         async function submitVehicle() {
@@ -373,11 +377,16 @@
             const model = document.getElementById('add-model').value;
             const color = document.getElementById('add-color').value;
 
-            if (isEditMode && !id) return;
+            if (!license_plate) {
+                alert("Registracija je obavezna!");
+                return;
+            }
+
             const url = isEditMode ? `${API_VEHICLES_URL}/${id}/update` : API_VEHICLES_URL;
             const method = isEditMode ? 'PUT' : 'POST';
 
             const payload = { id, owner_id: "me", license_plate, type, brand, model, color, is_ready: true, description: '' };
+
 
             try {
                 await fetch(url, {
@@ -416,6 +425,7 @@
                 if (!v) return;
 
                 document.getElementById('modalTitle').innerText = 'Izmena vozila';
+                document.getElementById('id-group').style.display = 'block'; // Prikazi ID pri izmeni
                 document.getElementById('add-id').value = v.id;
                 document.getElementById('add-plate').value = v.license_plate || '';
                 document.getElementById('add-type').value = v.type || '';
