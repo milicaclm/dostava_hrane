@@ -204,6 +204,72 @@
             /* Hover efekat prilikom prelaska miša preko reda */
         }
 
+        .advanced-search-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #e2e6ea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .search-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .search-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .search-field label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .search-field input[type="text"],
+        .search-field select {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 38px;
+        }
+
+        .radio-group label {
+            font-weight: normal;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-clear {
+            padding: 8px 15px;
+            background-color: #e2e6ea;
+            color: #495057;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-clear:hover {
+            background-color: #dae0e5;
+        }
+
         /* Stilovi za Modal */
         .modal {
             display: none;
@@ -252,8 +318,8 @@
 
     <div class="controls">
         <div class="search-group">
-            <input type="text" class="search-box" placeholder="Pretraži id dostave...">
-            <button class="btn-advanced">Napredna pretraga</button>
+            <input type="text" class="search-box" id="search-basic" placeholder="Pretraži id dostave...">
+            <button class="btn-advanced" onclick="toggleAdvancedSearch()">Napredna pretraga</button>
         </div>
         <div style="display: flex; gap: 20px; align-items: center;">
             <div class="toggle-container">
@@ -264,6 +330,55 @@
                 </label>
             </div>
             <button class="btn-add" onclick="openAddModal()">+ Kreiraj dostavu</button>
+        </div>
+    </div>
+
+    <!-- Napredna pretraga panel -->
+    <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
+        <div class="search-grid">
+            <div class="search-field">
+                <label for="filter-id">ID Dostave:</label>
+                <input type="text" id="filter-id" placeholder="Npr. del-1">
+            </div>
+            <div class="search-field">
+                <label for="filter-from">Od (Restoran):</label>
+                <input type="text" id="filter-from" placeholder="Npr. Restoran 1">
+            </div>
+            <div class="search-field">
+                <label for="filter-to">Do (Kupac):</label>
+                <input type="text" id="filter-to" placeholder="Npr. Adresa 1">
+            </div>
+            <div class="search-field">
+                <label for="filter-courier">Dostavljač:</label>
+                <input type="text" id="filter-courier" placeholder="Npr. user-del-1">
+            </div>
+            <div class="search-field">
+                <label for="filter-status">Status:</label>
+                <select id="filter-status">
+                    <option value="">Svi statusi</option>
+                    <option value="pending">pending</option>
+                    <option value="accepted">accepted</option>
+                    <option value="rejected">rejected</option>
+                    <option value="in_transit">in_transit</option>
+                    <option value="completed">completed</option>
+                    <option value="cancelled">cancelled</option>
+                </select>
+            </div>
+            <div class="search-field">
+                <label for="filter-rating">Ocena:</label>
+                <select id="filter-rating">
+                    <option value="">Sve ocene</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="none">Nije ocenjeno</option>
+                </select>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button class="btn-clear" onclick="clearFilters()">Očisti filtere</button>
         </div>
     </div>
 
@@ -318,42 +433,121 @@
         const API_BASE_DELIVERIES = 'http://localhost:8000/api/delivery-subsystem/deliveries';
 
         let isEditMode = false;
+        let allDeliveries = [];
+
+        function toggleAdvancedSearch() {
+            const panel = document.getElementById('advanced-search-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('search-basic').value = '';
+            document.getElementById('filter-id').value = '';
+            document.getElementById('filter-from').value = '';
+            document.getElementById('filter-to').value = '';
+            document.getElementById('filter-courier').value = '';
+            document.getElementById('filter-status').value = '';
+            document.getElementById('filter-rating').value = '';
+            document.getElementById('active-deliveries-toggle').checked = false;
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const basicSearch = document.getElementById('search-basic').value.trim().toLowerCase();
+            const filterId = document.getElementById('filter-id').value.trim().toLowerCase();
+            const filterFrom = document.getElementById('filter-from').value.trim().toLowerCase();
+            const filterTo = document.getElementById('filter-to').value.trim().toLowerCase();
+            const filterCourier = document.getElementById('filter-courier').value.trim().toLowerCase();
+            const filterStatus = document.getElementById('filter-status').value;
+            const filterRating = document.getElementById('filter-rating').value;
+            const activeOnly = document.getElementById('active-deliveries-toggle').checked;
+
+            const filtered = allDeliveries.filter(delivery => {
+                if (activeOnly && (delivery.status === 'completed' || delivery.status === 'cancelled')) {
+                    return false;
+                }
+                if (basicSearch && !(delivery.id && delivery.id.toLowerCase().includes(basicSearch))) {
+                    return false;
+                }
+                if (filterId && !(delivery.id && delivery.id.toLowerCase().includes(filterId))) {
+                    return false;
+                }
+                if (filterFrom && !(delivery.from_location && delivery.from_location.toLowerCase().includes(filterFrom))) {
+                    return false;
+                }
+                if (filterTo && !(delivery.to_location && delivery.to_location.toLowerCase().includes(filterTo))) {
+                    return false;
+                }
+                if (filterCourier) {
+                    const courierVal = delivery.courier || 'Nije dodeljen';
+                    if (!courierVal.toLowerCase().includes(filterCourier)) {
+                        return false;
+                    }
+                }
+                if (filterStatus && delivery.status !== filterStatus) {
+                    return false;
+                }
+                if (filterRating) {
+                    if (filterRating === 'none') {
+                        if (delivery.rating && delivery.rating !== 0) {
+                            return false;
+                        }
+                    } else {
+                        if (String(delivery.rating) !== filterRating) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            });
+
+            renderDeliveries(filtered);
+        }
+
+        function renderDeliveries(deliveriesList) {
+            const tbody = document.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            if (deliveriesList) {
+                deliveriesList.forEach(delivery => {
+                    const tr = document.createElement('tr');
+                    const fmtTime = (t) => t && t !== 'None' ? t.replace('T', ' ').substring(0, 16) : '/';
+
+                    tr.innerHTML = `
+                        <td>${delivery.id}</td>
+                        <td>${delivery.from_location || '/'}</td>
+                        <td>${delivery.to_location || '/'}</td>
+                        <td>${delivery.courier || 'Nije dodeljen'}</td>
+                        <td>${fmtTime(delivery.start_time)}</td>
+                        <td>${fmtTime(delivery.pickup_time)}</td>
+                        <td>${fmtTime(delivery.delivery_time)}</td>
+                        <td><strong>${delivery.status}</strong></td>
+                        <td>${delivery.rating || '/'}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editDelivery('${delivery.id}')">Izmeni</button>
+                            <button class="btn-delete" onclick="deleteDelivery('${delivery.id}')">Obriši</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
 
         async function loadDeliveries() {
             try {
                 const response = await fetch(API_BASE_DELIVERIES + '/');
                 const data = await response.json();
-                const tbody = document.querySelector('tbody');
-                const activeOnly = document.getElementById('active-deliveries-toggle').checked;
-
-                tbody.innerHTML = '';
-
+                
                 if (Array.isArray(data)) {
-                    data.forEach(delivery => {
-                        // Preskoči završene/otkazane dostave ako je uključen switch za 'Aktivne'
-                        if (activeOnly && (delivery.status === 'completed' || delivery.status === 'cancelled')) return;
-
-                        const tr = document.createElement('tr');
-                        const fmtTime = (t) => t && t !== 'None' ? t.replace('T', ' ').substring(0, 16) : '/';
-
-                        tr.innerHTML = `
-                            <td>${delivery.id}</td>
-                            <td>${delivery.from_location || '/'}</td>
-                            <td>${delivery.to_location || '/'}</td>
-                            <td>${delivery.courier || 'Nije dodeljen'}</td>
-                            <td>${fmtTime(delivery.start_time)}</td>
-                            <td>${fmtTime(delivery.pickup_time)}</td>
-                            <td>${fmtTime(delivery.delivery_time)}</td>
-                            <td><strong>${delivery.status}</strong></td>
-                            <td>${delivery.rating || '/'}</td>
-                            <td>
-                                <button class="btn-edit" onclick="editDelivery('${delivery.id}')">Izmeni</button>
-                                <button class="btn-delete" onclick="deleteDelivery('${delivery.id}')">Obriši</button>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                    allDeliveries = data;
+                } else {
+                    allDeliveries = [];
                 }
+                applyFilters();
             } catch (error) {
                 console.error('Greška pri učitavanju dostava:', error);
             }
@@ -424,8 +618,15 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadDeliveries(); // Inicijalno učitavanje
 
-            // Osvežavanje podataka prilikom klika na toggle 'Aktivne dostave'
-            document.getElementById('active-deliveries-toggle').addEventListener('change', loadDeliveries);
+            // Povezivanje input/change slušalaca na sve filtere za instant pretragu
+            document.getElementById('search-basic').addEventListener('input', applyFilters);
+            document.getElementById('filter-id').addEventListener('input', applyFilters);
+            document.getElementById('filter-from').addEventListener('input', applyFilters);
+            document.getElementById('filter-to').addEventListener('input', applyFilters);
+            document.getElementById('filter-courier').addEventListener('input', applyFilters);
+            document.getElementById('filter-status').addEventListener('change', applyFilters);
+            document.getElementById('filter-rating').addEventListener('change', applyFilters);
+            document.getElementById('active-deliveries-toggle').addEventListener('change', applyFilters);
 
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;

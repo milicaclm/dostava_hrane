@@ -32,18 +32,28 @@ def get_vehicles():
         # Osnovni upit koji dohvata sva vozila
         query_base = "MATCH (v:Vehicle)"
 
-        # Ako je prosleđen filter za vlasnika, modifikuj upit
+        # Ako je prosleđen filter za vlasnika, modifikuj upit sa filtriranjem is_ready=true za dostavljače
         if owner_id_filter:
-            query_base += " WHERE v.owner_id = $owner_id OR v.owner_id IS NULL"
+            query_base = """
+            MATCH (v:Vehicle)
+            WHERE (v.owner_id = $owner_id OR v.owner_id IS NULL)
+            WITH v
+            OPTIONAL MATCH (u:User {id: $owner_id})
+            WHERE u.account_type IN ['courier', 'delivery']
+            WITH v, u
+            WHERE u IS NULL OR v.is_ready = true
+            """
             params['owner_id'] = owner_id_filter
         
-        # Nastavak upita za proveru da li je vozilo u upotrebi
+        # Nastavak upita za proveru da li je vozilo u upotrebi i ko ga koristi
         query = f"""
         {query_base}
+        OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u_assigned:User)
+        WITH v, u_assigned.id AS assigned_user_id
         OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
         WHERE d.status IN ['accepted', 'in_transit']
-        WITH v, count(d) > 0 AS is_in_use
-        RETURN v, is_in_use
+        WITH v, assigned_user_id, count(d) > 0 AS is_in_use
+        RETURN v, assigned_user_id, is_in_use
         """
         
         result = session.run(query, params)
@@ -51,6 +61,7 @@ def get_vehicles():
         for record in result:
             vehicle_node = record["v"]
             is_in_use = record["is_in_use"]
+            assigned_user_id = record["assigned_user_id"]
             vehicles.append({
                 "id": vehicle_node["id"],
                 "owner_id": vehicle_node.get("owner_id"),
@@ -61,6 +72,7 @@ def get_vehicles():
                 "model": vehicle_node.get("model"),
                 "color": vehicle_node.get("color"),
                 "in_use": is_in_use,
+                "assigned_user_id": assigned_user_id,
                 "description": vehicle_node.get("description")
             })
     return jsonify({"vehicles": vehicles})

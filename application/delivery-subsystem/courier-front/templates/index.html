@@ -56,6 +56,23 @@
             background-color: #5a6268;
         }
 
+        .logout-button {
+            padding: 8px 16px;
+            margin-left: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .logout-button:hover {
+            background-color: #c82333;
+        }
+
         .main-content {
             flex-grow: 1; /* Omogućava da ovaj deo zauzme sav preostali prostor */
             display: flex; /* Omogućava da iframe unutar njega koristi flex */
@@ -75,11 +92,19 @@
     <div class="top-bar">
         <a href="moja_vozila.html" target="content-frame" class="nav-button">Moja Vozila</a>
         <a href="#" class="profile-icon" title="Podešavanja naloga">P</a>
+        <button onclick="logout()" class="logout-button" title="Odjavi se">Odjavi se</button>
     </div>
 
     <div class="main-content">
         <iframe src="smena.html" name="content-frame" title="Glavni sadržaj"></iframe>
     </div>
+
+    <script>
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            window.location.href = '/';
+        }
+    </script>
 </body>
 
 </html>

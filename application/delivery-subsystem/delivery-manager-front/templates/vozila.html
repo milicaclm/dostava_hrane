@@ -150,6 +150,72 @@ w<!DOCTYPE html>
             /* Hover efekat prilikom prelaska miša preko reda */
         }
 
+        .advanced-search-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #e2e6ea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .search-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .search-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .search-field label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .search-field input[type="text"],
+        .search-field select {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 38px;
+        }
+
+        .radio-group label {
+            font-weight: normal;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-clear {
+            padding: 8px 15px;
+            background-color: #e2e6ea;
+            color: #495057;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-clear:hover {
+            background-color: #dae0e5;
+        }
+
         /* Stilovi za Modal */
         .modal {
             display: none;
@@ -204,10 +270,69 @@ w<!DOCTYPE html>
 
     <div class="controls">
         <div class="search-group">
-            <input type="text" class="search-box" placeholder="Pretraži vozila po oznaci...">
-            <button class="btn-advanced">Napredna pretraga</button>
+            <input type="text" class="search-box" id="search-plate-basic" placeholder="Pretraži vozila po oznaci...">
+            <button class="btn-advanced" onclick="toggleAdvancedSearch()">Napredna pretraga</button>
         </div>
         <button class="btn-add" onclick="openAddModal()">+ Dodaj vozilo</button>
+    </div>
+
+    <!-- Napredna pretraga panel -->
+    <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
+        <div class="search-grid">
+            <div class="search-field">
+                <label for="filter-id">ID Vozila:</label>
+                <input type="text" id="filter-id" placeholder="Npr. v-1">
+            </div>
+            <div class="search-field">
+                <label for="filter-owner-id">Vlasnik ID:</label>
+                <input type="text" id="filter-owner-id" placeholder="Npr. user-mgr">
+            </div>
+            <div class="search-field">
+                <label for="filter-plate">Registarska oznaka:</label>
+                <input type="text" id="filter-plate" placeholder="Npr. BG-1234">
+            </div>
+            <div class="search-field">
+                <label for="filter-type">Tip:</label>
+                <select id="filter-type">
+                    <option value="">Svi tipovi</option>
+                    <option value="bicycle">Bicycle</option>
+                    <option value="bike">Bike</option>
+                    <option value="car">Car</option>
+                    <option value="motorcycle">Motorcycle</option>
+                </select>
+            </div>
+            <div class="search-field">
+                <label for="filter-brand">Marka:</label>
+                <input type="text" id="filter-brand" placeholder="Npr. Fiat">
+            </div>
+            <div class="search-field">
+                <label for="filter-model">Model:</label>
+                <input type="text" id="filter-model" placeholder="Npr. Panda">
+            </div>
+            <div class="search-field">
+                <label for="filter-color">Boja:</label>
+                <input type="text" id="filter-color" placeholder="Npr. Bela">
+            </div>
+            <div class="search-field">
+                <label>Spreman:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="filter-ready" value="" checked> Svi</label>
+                    <label><input type="radio" name="filter-ready" value="da"> Da</label>
+                    <label><input type="radio" name="filter-ready" value="ne"> Ne</label>
+                </div>
+            </div>
+            <div class="search-field">
+                <label>Zauzeto:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="filter-in-use" value="" checked> Svi</label>
+                    <label><input type="radio" name="filter-in-use" value="da"> Da</label>
+                    <label><input type="radio" name="filter-in-use" value="ne"> Ne</label>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button class="btn-clear" onclick="clearFilters()">Očisti filtere</button>
+        </div>
     </div>
 
     <table>
@@ -277,35 +402,123 @@ w<!DOCTYPE html>
         const API_BASE_VEHICLES = 'http://localhost:8000/api/delivery-subsystem/resources/vehicles';
 
         let isEditMode = false;
+        let allVehicles = [];
+
+        function toggleAdvancedSearch() {
+            const panel = document.getElementById('advanced-search-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('search-plate-basic').value = '';
+            document.getElementById('filter-id').value = '';
+            document.getElementById('filter-owner-id').value = '';
+            document.getElementById('filter-plate').value = '';
+            document.getElementById('filter-type').value = '';
+            document.getElementById('filter-brand').value = '';
+            document.getElementById('filter-model').value = '';
+            document.getElementById('filter-color').value = '';
+            document.querySelector('input[name="filter-ready"][value=""]').checked = true;
+            document.querySelector('input[name="filter-in-use"][value=""]').checked = true;
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const basicPlate = document.getElementById('search-plate-basic').value.trim().toLowerCase();
+            const filterId = document.getElementById('filter-id').value.trim().toLowerCase();
+            const filterOwnerId = document.getElementById('filter-owner-id').value.trim().toLowerCase();
+            const filterPlate = document.getElementById('filter-plate').value.trim().toLowerCase();
+            const filterType = document.getElementById('filter-type').value;
+            const filterBrand = document.getElementById('filter-brand').value.trim().toLowerCase();
+            const filterModel = document.getElementById('filter-model').value.trim().toLowerCase();
+            const filterColor = document.getElementById('filter-color').value.trim().toLowerCase();
+            const filterReady = document.querySelector('input[name="filter-ready"]:checked').value;
+            const filterInUse = document.querySelector('input[name="filter-in-use"]:checked').value;
+
+            const filtered = allVehicles.filter(vehicle => {
+                if (basicPlate && !(vehicle.license_plate && vehicle.license_plate.toLowerCase().includes(basicPlate))) {
+                    return false;
+                }
+                if (filterId && !(vehicle.id && vehicle.id.toLowerCase().includes(filterId))) {
+                    return false;
+                }
+                if (filterOwnerId) {
+                    const owner = vehicle.owner_id || '/';
+                    if (!owner.toLowerCase().includes(filterOwnerId)) {
+                        return false;
+                    }
+                }
+                if (filterPlate && !(vehicle.license_plate && vehicle.license_plate.toLowerCase().includes(filterPlate))) {
+                    return false;
+                }
+                if (filterType && vehicle.type !== filterType) {
+                    return false;
+                }
+                if (filterBrand && !(vehicle.brand && vehicle.brand.toLowerCase().includes(filterBrand))) {
+                    return false;
+                }
+                if (filterModel && !(vehicle.model && vehicle.model.toLowerCase().includes(filterModel))) {
+                    return false;
+                }
+                if (filterColor && !(vehicle.color && vehicle.color.toLowerCase().includes(filterColor))) {
+                    return false;
+                }
+                if (filterReady) {
+                    const isReadyStr = vehicle.is_ready ? 'da' : 'ne';
+                    if (isReadyStr !== filterReady) return false;
+                }
+                if (filterInUse) {
+                    const isInUseStr = vehicle.in_use ? 'da' : 'ne';
+                    if (isInUseStr !== filterInUse) return false;
+                }
+                return true;
+            });
+
+            renderVehicles(filtered);
+        }
+
+        function renderVehicles(vehiclesList) {
+            const tbody = document.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            if (vehiclesList) {
+                vehiclesList.forEach(vehicle => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${vehicle.id}</td>
+                        <td>${vehicle.owner_id || '/'}</td>
+                        <td>${vehicle.license_plate}</td>
+                        <td>${vehicle.type}</td>
+                        <td>${vehicle.model || ''}</td>
+                        <td>${vehicle.brand || ''}</td>
+                        <td>${vehicle.color || ''}</td>
+                        <td>${vehicle.is_ready ? 'Da' : 'Ne'}</td>
+                        <td>${vehicle.in_use ? 'Da' : 'Ne'}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editVehicle('${vehicle.id}')">Izmeni</button>
+                            <button class="btn-delete" onclick="deleteVehicle('${vehicle.id}')">Obriši</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
 
         async function loadVehicles() {
             try {
                 const response = await fetch(API_BASE_VEHICLES);
                 const data = await response.json();
-                const tbody = document.querySelector('tbody');
-                tbody.innerHTML = '';
-
+                
                 if (data.vehicles) {
-                    data.vehicles.forEach(vehicle => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${vehicle.id}</td>
-                            <td>${vehicle.owner_id || '/'}</td>
-                            <td>${vehicle.license_plate}</td>
-                            <td>${vehicle.type}</td>
-                            <td>${vehicle.model || ''}</td>
-                            <td>${vehicle.brand || ''}</td>
-                            <td>${vehicle.color || ''}</td>
-                            <td>${vehicle.is_ready ? 'Da' : 'Ne'}</td>
-                            <td>${vehicle.in_use ? 'Da' : 'Ne'}</td>
-                            <td>
-                                <button class="btn-edit" onclick="editVehicle('${vehicle.id}')">Izmeni</button>
-                                <button class="btn-delete" onclick="deleteVehicle('${vehicle.id}')">Obriši</button>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                    allVehicles = data.vehicles;
+                } else {
+                    allVehicles = [];
                 }
+                applyFilters();
             } catch (error) {
                 console.error('Greška pri učitavanju vozila:', error);
             }
@@ -323,6 +536,10 @@ w<!DOCTYPE html>
             document.getElementById('add-model').value = '';
             document.getElementById('add-color').value = '';
             document.getElementById('addModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').style.display = 'none';
         }
 
         async function submitVehicle() {
@@ -389,6 +606,23 @@ w<!DOCTYPE html>
 
         document.addEventListener('DOMContentLoaded', () => {
             loadVehicles(); // Učitavanje odmah na startu
+
+            // Povezivanje input/change slušalaca na sve filtere za instant pretragu
+            document.getElementById('search-plate-basic').addEventListener('input', applyFilters);
+            document.getElementById('filter-id').addEventListener('input', applyFilters);
+            document.getElementById('filter-owner-id').addEventListener('input', applyFilters);
+            document.getElementById('filter-plate').addEventListener('input', applyFilters);
+            document.getElementById('filter-type').addEventListener('change', applyFilters);
+            document.getElementById('filter-brand').addEventListener('input', applyFilters);
+            document.getElementById('filter-model').addEventListener('input', applyFilters);
+            document.getElementById('filter-color').addEventListener('input', applyFilters);
+            
+            document.querySelectorAll('input[name="filter-ready"]').forEach(radio => {
+                radio.addEventListener('change', applyFilters);
+            });
+            document.querySelectorAll('input[name="filter-in-use"]').forEach(radio => {
+                radio.addEventListener('change', applyFilters);
+            });
 
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;

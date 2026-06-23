@@ -96,12 +96,41 @@
             background-color: #c82333;
         }
 
+        .btn-select {
+            padding: 5px 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-select:hover {
+            background-color: #218838;
+        }
+
+        .btn-unselect {
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-unselect:hover {
+            background-color: #c82333;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        th, td {
+        th,
+        td {
             padding: 15px;
             text-align: left;
             border-bottom: 1px solid #ddd;
@@ -138,6 +167,86 @@
 
         tr:hover {
             background-color: #f1f1f1;
+        }
+
+        .advanced-search-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #e2e6ea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .search-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .search-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .search-field label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .search-field input[type="text"],
+        .search-field select {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 38px;
+        }
+
+        .radio-group label {
+            font-weight: normal;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-clear {
+            padding: 8px 15px;
+            background-color: #e2e6ea;
+            color: #495057;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-clear:hover {
+            background-color: #dae0e5;
+        }
+
+        .btn-apply {
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-apply:hover {
+            background-color: #0056b3;
         }
 
         /* Modal Styles */
@@ -177,7 +286,8 @@
             font-size: 14px;
         }
 
-        .form-group input, .form-group select {
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 8px;
             box-sizing: border-box;
@@ -187,15 +297,19 @@
 
         .btn-back {
             padding: 10px 15px;
-            background-color: #6c757d; /* A shade of grey */
+            background-color: #6c757d;
+            /* A shade of grey */
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
-            text-decoration: none; /* Remove underline from link */
-            margin-right: 15px; /* Add some spacing */
-            display: inline-block; /* Ensure it behaves like a block element */
+            text-decoration: none;
+            /* Remove underline from link */
+            margin-right: 15px;
+            /* Add some spacing */
+            display: inline-block;
+            /* Ensure it behaves like a block element */
         }
 
         .btn-back:hover {
@@ -211,10 +325,62 @@
 
     <div class="controls">
         <div class="search-group">
-            <input type="text" class="search-box" placeholder="Pretraži vozila po oznaci...">
-            <button class="btn-advanced">Napredna pretraga</button>
+            <input type="text" class="search-box" id="search-plate-basic" placeholder="Pretraži vozila po oznaci...">
+            <button class="btn-advanced" onclick="toggleAdvancedSearch()">Napredna pretraga</button>
         </div>
         <button class="btn-add" onclick="openAddModal()">+ Dodaj moje vozilo</button>
+    </div>
+
+    <!-- Napredna pretraga panel -->
+    <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
+        <div class="search-grid">
+            <div class="search-field">
+                <label for="filter-id">ID Vozila:</label>
+                <input type="text" id="filter-id" placeholder="Npr. v-1">
+            </div>
+            <div class="search-field">
+                <label for="filter-owner-id">Vlasnik ID:</label>
+                <input type="text" id="filter-owner-id" placeholder="Npr. user-mgr">
+            </div>
+            <div class="search-field">
+                <label for="filter-plate">Registarska oznaka:</label>
+                <input type="text" id="filter-plate" placeholder="Npr. BG-1234">
+            </div>
+            <div class="search-field">
+                <label for="filter-type">Tip:</label>
+                <select id="filter-type">
+                    <option value="">Svi tipovi</option>
+                    <option value="bicycle">Bicycle</option>
+                    <option value="bike">Bike</option>
+                    <option value="car">Car</option>
+                    <option value="motorcycle">Motorcycle</option>
+                </select>
+            </div>
+            <div class="search-field">
+                <label for="filter-brand">Marka:</label>
+                <input type="text" id="filter-brand" placeholder="Npr. Fiat">
+            </div>
+            <div class="search-field">
+                <label for="filter-model">Model:</label>
+                <input type="text" id="filter-model" placeholder="Npr. Panda">
+            </div>
+            <div class="search-field">
+                <label for="filter-color">Boja:</label>
+                <input type="text" id="filter-color" placeholder="Npr. Bela">
+            </div>
+
+            <div class="search-field">
+                <label>Zauzeto:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="filter-in-use" value="" checked> Svi</label>
+                    <label><input type="radio" name="filter-in-use" value="da"> Da</label>
+                    <label><input type="radio" name="filter-in-use" value="ne"> Ne</label>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button class="btn-clear" onclick="clearFilters()">Očisti filtere</button>
+        </div>
     </div>
 
     <table>
@@ -227,9 +393,9 @@
                 <th class="sortable" title="Klikni za sortiranje">Model</th>
                 <th class="sortable" title="Klikni za sortiranje">Marka</th>
                 <th class="sortable" title="Klikni za sortiranje">Boja</th>
-                <th class="sortable" title="Klikni za sortiranje">Spreman</th>
                 <th class="sortable" title="Klikni za sortiranje">Zauzeto</th>
                 <th>Akcije</th>
+                <th>Odabir</th>
             </tr>
         </thead>
         <tbody>
@@ -279,9 +445,26 @@
     <script>
         const API_AUTH_URL = 'http://localhost:8000/api/auth-service/auth/login';
         const API_VEHICLES_URL = 'http://localhost:8000/api/delivery-subsystem/resources/vehicles';
-        const CURRENT_USER_ID = "user-del-1"; // ID korisnika Marko Marković
+        const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
+        let CURRENT_USER_ID = "user-del-1"; // ID korisnika Marko Marković
         let jwtToken = null; // Globalna promenljiva za čuvanje tokena
         let isEditMode = false;
+        let allVehicles = []; // Sva vozila učitana sa API-ja
+
+        function getUserIdFromToken(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                const payload = JSON.parse(jsonPayload);
+                return payload.sub;
+            } catch (e) {
+                console.error("Greška pri dekodiranju tokena:", e);
+                return null;
+            }
+        }
 
         async function loginAndFetchVehicles() {
             try {
@@ -297,12 +480,132 @@
 
                 const loginData = await loginResponse.json();
                 jwtToken = loginData.access_token; // Sačuvaj token
+                CURRENT_USER_ID = getUserIdFromToken(jwtToken) || CURRENT_USER_ID;
 
                 // Sada kada imamo token, učitavamo vozila
                 await loadVehicles();
             } catch (error) {
                 console.error('Greška prilikom logina ili učitavanja vozila:', error);
                 document.querySelector('tbody').innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Greška: Nije moguće dobaviti podatke. Proverite da li je backend pokrenut.</td></tr>`;
+            }
+        }
+
+        function toggleAdvancedSearch() {
+            const panel = document.getElementById('advanced-search-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('search-plate-basic').value = '';
+            document.getElementById('filter-id').value = '';
+            document.getElementById('filter-owner-id').value = '';
+            document.getElementById('filter-plate').value = '';
+            document.getElementById('filter-type').value = '';
+            document.getElementById('filter-brand').value = '';
+            document.getElementById('filter-model').value = '';
+            document.getElementById('filter-color').value = '';
+            document.querySelector('input[name="filter-in-use"][value=""]').checked = true;
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const basicPlate = document.getElementById('search-plate-basic').value.trim().toLowerCase();
+            const filterId = document.getElementById('filter-id').value.trim().toLowerCase();
+            const filterOwnerId = document.getElementById('filter-owner-id').value.trim().toLowerCase();
+            const filterPlate = document.getElementById('filter-plate').value.trim().toLowerCase();
+            const filterType = document.getElementById('filter-type').value;
+            const filterBrand = document.getElementById('filter-brand').value.trim().toLowerCase();
+            const filterModel = document.getElementById('filter-model').value.trim().toLowerCase();
+            const filterColor = document.getElementById('filter-color').value.trim().toLowerCase();
+            const filterInUse = document.querySelector('input[name="filter-in-use"]:checked').value;
+
+            const filtered = allVehicles.filter(vehicle => {
+                // Provera osnovne pretrage po registraciji
+                if (basicPlate && !(vehicle.license_plate && vehicle.license_plate.toLowerCase().includes(basicPlate))) {
+                    return false;
+                }
+                // Napredna pretraga
+                if (filterId && !(vehicle.id && vehicle.id.toLowerCase().includes(filterId))) {
+                    return false;
+                }
+                if (filterOwnerId) {
+                    const owner = vehicle.owner_id || '/';
+                    if (!owner.toLowerCase().includes(filterOwnerId)) {
+                        return false;
+                    }
+                }
+                if (filterPlate && !(vehicle.license_plate && vehicle.license_plate.toLowerCase().includes(filterPlate))) {
+                    return false;
+                }
+                if (filterType && vehicle.type !== filterType) {
+                    return false;
+                }
+                if (filterBrand && !(vehicle.brand && vehicle.brand.toLowerCase().includes(filterBrand))) {
+                    return false;
+                }
+                if (filterModel && !(vehicle.model && vehicle.model.toLowerCase().includes(filterModel))) {
+                    return false;
+                }
+                if (filterColor && !(vehicle.color && vehicle.color.toLowerCase().includes(filterColor))) {
+                    return false;
+                }
+                if (filterInUse) {
+                    const isInUseStr = vehicle.in_use ? 'da' : 'ne';
+                    if (isInUseStr !== filterInUse) return false;
+                }
+                return true;
+            });
+
+            renderVehicles(filtered);
+        }
+
+        function renderVehicles(vehiclesList) {
+            const tbody = document.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            if (vehiclesList && vehiclesList.length > 0) {
+                // Pronađi trenutno odabrano vozilo prijavljenog dostavljača među svim vozilima
+                const currentlyAssignedVehicle = allVehicles.find(v => v.assigned_user_id === CURRENT_USER_ID);
+                const currentAssignedPlate = currentlyAssignedVehicle ? currentlyAssignedVehicle.license_plate : null;
+
+                vehiclesList.forEach(vehicle => {
+                    const tr = document.createElement('tr');
+
+                    let actionsHtml = `<span style="color: #aaa; font-style: italic;">Službeno vozilo</span>`;
+                    if (vehicle.owner_id === CURRENT_USER_ID) {
+                        actionsHtml = `
+                            <button class="btn-edit" onclick="editVehicle('${vehicle.id}')">Izmeni</button>
+                            <button class="btn-delete" onclick="deleteVehicle('${vehicle.id}')">Obriši</button>
+                        `;
+                    }
+
+                    let selectionHtml = '';
+                    if (vehicle.assigned_user_id === CURRENT_USER_ID) {
+                        selectionHtml = `<button class="btn-unselect" onclick="unselectVehicle('${vehicle.license_plate}')">Otkaži</button>`;
+                    } else {
+                        selectionHtml = `<button class="btn-select" onclick="selectVehicle('${vehicle.license_plate}', ${currentAssignedPlate ? `'${currentAssignedPlate}'` : 'null'}, ${vehicle.in_use})">Odaberi</button>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td>${vehicle.id}</td>
+                        <td>${vehicle.owner_id || '/'}</td>
+                        <td>${vehicle.license_plate}</td>
+                        <td>${vehicle.type}</td>
+                        <td>${vehicle.model || ''}</td>
+                        <td>${vehicle.brand || ''}</td>
+                        <td>${vehicle.color || ''}</td>
+                        <td>${vehicle.in_use ? 'Da' : 'Ne'}</td>
+                        <td>${actionsHtml}</td>
+                        <td>${selectionHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;">Nema dostupnih vozila.</td></tr>`;
             }
         }
 
@@ -319,41 +622,84 @@
                     }
                 });
                 const data = await response.json();
-                const tbody = document.querySelector('tbody');
-                tbody.innerHTML = '';
-
+                
                 if (data.vehicles && data.vehicles.length > 0) {
-                    data.vehicles.forEach(vehicle => {
-                        const tr = document.createElement('tr');
-
-                        let actionsHtml = `<span style="color: #aaa; font-style: italic;">Službeno vozilo</span>`;
-                        if (vehicle.owner_id === CURRENT_USER_ID) {
-                            actionsHtml = `
-                                <button class="btn-edit" onclick="editVehicle('${vehicle.id}')">Izmeni</button>
-                                <button class="btn-delete" onclick="deleteVehicle('${vehicle.id}')">Obriši</button>
-                            `;
-                        }
-
-                        tr.innerHTML = `
-                            <td>${vehicle.id}</td>
-                            <td>${vehicle.owner_id || '/'}</td>
-                            <td>${vehicle.license_plate}</td>
-                            <td>${vehicle.type}</td>
-                            <td>${vehicle.model || ''}</td>
-                            <td>${vehicle.brand || ''}</td>
-                            <td>${vehicle.color || ''}</td>
-                            <td>${vehicle.is_ready ? 'Da' : 'Ne'}</td>
-                            <td>${vehicle.in_use ? 'Da' : 'Ne'}</td>
-                            <td>${actionsHtml}</td>
-                        `;
-                        tbody.appendChild(tr);
+                    allVehicles = data.vehicles;
+                    
+                    // Sortiraj tako da je odabrano vozilo na vrhu
+                    allVehicles.sort((a, b) => {
+                        const aAssigned = a.assigned_user_id === CURRENT_USER_ID;
+                        const bAssigned = b.assigned_user_id === CURRENT_USER_ID;
+                        if (aAssigned && !bAssigned) return -1;
+                        if (!aAssigned && bAssigned) return 1;
+                        return 0;
                     });
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;">Nema dostupnih vozila.</td></tr>`;
+                    allVehicles = [];
                 }
+                
+                applyFilters();
             } catch (error) {
                 console.error('Greška pri učitavanju vozila:', error);
             }
+        }
+
+        async function selectVehicle(licensePlate, currentAssignedPlate, isInUse) {
+            if (isInUse) {
+                alert("Vozilo je zauzeto!");
+                return;
+            }
+            try {
+                if (currentAssignedPlate) {
+                    // Otkaži prethodno odabrano vozilo
+                    await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/unassign_vehicle/${currentAssignedPlate}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${jwtToken}`
+                        }
+                    });
+                }
+                
+                // Odaberi novo vozilo
+                const resp = await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/assign_vehicle/${licensePlate}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+                
+                if (resp.ok) {
+                    await loadVehicles();
+                } else {
+                    const errData = await resp.json();
+                    alert("Greška pri odabiru vozila: " + (errData.error || resp.statusText));
+                }
+            } catch (error) {
+                console.error("Greška pri odabiru vozila:", error);
+            }
+        }
+
+        async function unselectVehicle(licensePlate) {
+            try {
+                const resp = await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/unassign_vehicle/${licensePlate}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${jwtToken}`
+                    }
+                });
+                if (resp.ok) {
+                    await loadVehicles();
+                } else {
+                    const errData = await resp.json();
+                    alert("Greška pri otkazivanju vozila: " + (errData.error || resp.statusText));
+                }
+            } catch (error) {
+                console.error("Greška pri otkazivanju vozila:", error);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').style.display = 'none';
         }
 
         function openAddModal() {
@@ -440,7 +786,20 @@
         document.addEventListener('DOMContentLoaded', () => {
             loginAndFetchVehicles(); // Pokrećemo ceo proces pri učitavanju stranice
 
-            // ... (ostatak koda za sortiranje ostaje isti) ...
+            // Povezivanje input/change slušalaca na sve filtere za instant pretragu
+            document.getElementById('search-plate-basic').addEventListener('input', applyFilters);
+            document.getElementById('filter-id').addEventListener('input', applyFilters);
+            document.getElementById('filter-owner-id').addEventListener('input', applyFilters);
+            document.getElementById('filter-plate').addEventListener('input', applyFilters);
+            document.getElementById('filter-type').addEventListener('change', applyFilters);
+            document.getElementById('filter-brand').addEventListener('input', applyFilters);
+            document.getElementById('filter-model').addEventListener('input', applyFilters);
+            document.getElementById('filter-color').addEventListener('input', applyFilters);
+            
+            document.querySelectorAll('input[name="filter-in-use"]').forEach(radio => {
+                radio.addEventListener('change', applyFilters);
+            });
+
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;
                 th.addEventListener('click', () => {
@@ -462,6 +821,11 @@
 
                     const rows = Array.from(tbody.querySelectorAll('tr'));
                     rows.sort((a, b) => {
+                        const aSelected = a.querySelector('.btn-unselect') !== null;
+                        const bSelected = b.querySelector('.btn-unselect') !== null;
+                        if (aSelected && !bSelected) return -1;
+                        if (!aSelected && bSelected) return 1;
+
                         const valA = a.children[index].innerText.trim();
                         const valB = b.children[index].innerText.trim();
 

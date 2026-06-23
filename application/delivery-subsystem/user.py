@@ -249,3 +249,24 @@ def assign_vehicle(user_id, license_plate):
             v = res["v"]
             return jsonify({"message": "Vehicle assigned", "user": {"id": u.get("id")}, "vehicle": {"license_plate": v.get("license_plate")}})
         return jsonify({"error": "Could not assign vehicle"}), 500
+
+@user_bp.route('/<user_id>/unassign_vehicle/<license_plate>', methods=['POST'])
+@jwt_required()
+def unassign_vehicle(user_id, license_plate):
+    current_user_id = get_jwt_identity()
+    with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_id != current_user_id and user_role != 'manager':
+            return jsonify({"error": "Forbidden"}), 403
+
+    with driver.session() as session:
+        res = session.run(
+            "MATCH (u:User {id: $user_id})-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) "
+            "DELETE r "
+            "RETURN count(r) AS deleted_count",
+            user_id=user_id,
+            license_plate=license_plate
+        ).single()
+        if res and res["deleted_count"] > 0:
+            return jsonify({"message": "Vehicle unassigned successfully"})
+        return jsonify({"error": "No assignment found between user and vehicle"}), 404

@@ -146,6 +146,72 @@
             /* Hover efekat prilikom prelaska miša preko reda */
         }
 
+        .advanced-search-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #e2e6ea;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .search-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .search-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .search-field label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .search-field input[type="text"],
+        .search-field select {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 38px;
+        }
+
+        .radio-group label {
+            font-weight: normal;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-clear {
+            padding: 8px 15px;
+            background-color: #e2e6ea;
+            color: #495057;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-clear:hover {
+            background-color: #dae0e5;
+        }
+
         /* Stilovi za Modal */
         .modal {
             display: none;
@@ -194,10 +260,63 @@
 
     <div class="controls">
         <div class="search-group">
-            <input type="text" class="search-box" placeholder="Pretraži dostavljače...">
-            <button class="btn-advanced">Napredna pretraga</button>
+            <input type="text" class="search-box" id="search-basic" placeholder="Pretraži dostavljače...">
+            <button class="btn-advanced" onclick="toggleAdvancedSearch()">Napredna pretraga</button>
         </div>
         <button class="btn-add" onclick="openAddModal()">+ Dodaj dostavljača</button>
+    </div>
+
+    <!-- Napredna pretraga panel -->
+    <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
+        <div class="search-grid">
+            <div class="search-field">
+                <label for="filter-id">ID Dostavljača:</label>
+                <input type="text" id="filter-id" placeholder="Npr. user-del-1">
+            </div>
+            <div class="search-field">
+                <label for="filter-name">Ime:</label>
+                <input type="text" id="filter-name" placeholder="Npr. Marko">
+            </div>
+            <div class="search-field">
+                <label for="filter-surname">Prezime:</label>
+                <input type="text" id="filter-surname" placeholder="Npr. Marković">
+            </div>
+            <div class="search-field">
+                <label for="filter-email">Email:</label>
+                <input type="text" id="filter-email" placeholder="Npr. marko@example.com">
+            </div>
+            <div class="search-field">
+                <label for="filter-phone">Telefon:</label>
+                <input type="text" id="filter-phone" placeholder="Npr. 063">
+            </div>
+            <div class="search-field">
+                <label>Aktivan:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="filter-active" value="" checked> Svi</label>
+                    <label><input type="radio" name="filter-active" value="da"> Da</label>
+                    <label><input type="radio" name="filter-active" value="ne"> Ne</label>
+                </div>
+            </div>
+            <div class="search-field">
+                <label>Dozvola za motor:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="filter-moto" value="" checked> Svi</label>
+                    <label><input type="radio" name="filter-moto" value="da"> Da</label>
+                    <label><input type="radio" name="filter-moto" value="ne"> Ne</label>
+                </div>
+            </div>
+            <div class="search-field">
+                <label>Dozvola za auto:</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="filter-car" value="" checked> Svi</label>
+                    <label><input type="radio" name="filter-car" value="da"> Da</label>
+                    <label><input type="radio" name="filter-car" value="ne"> Ne</label>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+            <button class="btn-clear" onclick="clearFilters()">Očisti filtere</button>
+        </div>
     </div>
 
     <table>
@@ -268,36 +387,122 @@
         const API_BASE_COURIERS = 'http://localhost:8000/api/delivery-subsystem/resources/couriers';
 
         let isEditMode = false;
+        let allCouriers = [];
+
+        function toggleAdvancedSearch() {
+            const panel = document.getElementById('advanced-search-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('search-basic').value = '';
+            document.getElementById('filter-id').value = '';
+            document.getElementById('filter-name').value = '';
+            document.getElementById('filter-surname').value = '';
+            document.getElementById('filter-email').value = '';
+            document.getElementById('filter-phone').value = '';
+            document.querySelector('input[name="filter-active"][value=""]').checked = true;
+            document.querySelector('input[name="filter-moto"][value=""]').checked = true;
+            document.querySelector('input[name="filter-car"][value=""]').checked = true;
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const basicSearch = document.getElementById('search-basic').value.trim().toLowerCase();
+            const filterId = document.getElementById('filter-id').value.trim().toLowerCase();
+            const filterName = document.getElementById('filter-name').value.trim().toLowerCase();
+            const filterSurname = document.getElementById('filter-surname').value.trim().toLowerCase();
+            const filterEmail = document.getElementById('filter-email').value.trim().toLowerCase();
+            const filterPhone = document.getElementById('filter-phone').value.trim().toLowerCase();
+            const filterActive = document.querySelector('input[name="filter-active"]:checked').value;
+            const filterMoto = document.querySelector('input[name="filter-moto"]:checked').value;
+            const filterCar = document.querySelector('input[name="filter-car"]:checked').value;
+
+            const filtered = allCouriers.filter(courier => {
+                if (basicSearch) {
+                    const idMatch = courier.id && courier.id.toLowerCase().includes(basicSearch);
+                    const nameMatch = courier.name && courier.name.toLowerCase().includes(basicSearch);
+                    const surnameMatch = courier.surname && courier.surname.toLowerCase().includes(basicSearch);
+                    if (!idMatch && !nameMatch && !surnameMatch) {
+                        return false;
+                    }
+                }
+                if (filterId && !(courier.id && courier.id.toLowerCase().includes(filterId))) {
+                    return false;
+                }
+                if (filterName && !(courier.name && courier.name.toLowerCase().includes(filterName))) {
+                    return false;
+                }
+                if (filterSurname && !(courier.surname && courier.surname.toLowerCase().includes(filterSurname))) {
+                    return false;
+                }
+                if (filterEmail && !(courier.email && courier.email.toLowerCase().includes(filterEmail))) {
+                    return false;
+                }
+                if (filterPhone && !(courier.phone_number && courier.phone_number.toLowerCase().includes(filterPhone))) {
+                    return false;
+                }
+                if (filterActive) {
+                    const isActiveStr = courier.is_active ? 'da' : 'ne';
+                    if (isActiveStr !== filterActive) return false;
+                }
+                if (filterMoto) {
+                    const isMotoStr = courier.motorcycle_license ? 'da' : 'ne';
+                    if (isMotoStr !== filterMoto) return false;
+                }
+                if (filterCar) {
+                    const isCarStr = courier.car_license ? 'da' : 'ne';
+                    if (isCarStr !== filterCar) return false;
+                }
+                return true;
+            });
+
+            renderCouriers(filtered);
+        }
+
+        function renderCouriers(couriersList) {
+            const tbody = document.querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            if (couriersList) {
+                couriersList.forEach(courier => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${courier.id}</td>
+                        <td>${courier.name}</td>
+                        <td>${courier.surname}</td>
+                        <td>${courier.email}</td>
+                        <td>${courier.phone_number || '/'}</td>
+                        <td>${courier.is_active ? 'Da' : 'Ne'}</td>
+                        <td>${courier.motorcycle_license ? 'Da' : 'Ne'}</td>
+                        <td>${courier.car_license ? 'Da' : 'Ne'}</td>
+                        <td>${courier.salary}</td>
+                        <td>${courier.average_rating}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editCourier('${courier.id}')">Izmeni</button>
+                            <button class="btn-delete" onclick="deleteCourier('${courier.id}')">Obriši</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
 
         async function loadCouriers() {
             try {
                 const response = await fetch(API_BASE_COURIERS);
                 const data = await response.json();
-                const tbody = document.querySelector('tbody');
-                tbody.innerHTML = '';
                 
                 if (data.couriers) {
-                    data.couriers.forEach(courier => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${courier.id}</td>
-                            <td>${courier.name}</td>
-                            <td>${courier.surname}</td>
-                            <td>${courier.email}</td>
-                            <td>${courier.phone_number}</td>
-                            <td>${courier.is_active ? 'Da' : 'Ne'}</td>
-                            <td>${courier.motorcycle_license ? 'Da' : 'Ne'}</td>
-                            <td>${courier.car_license ? 'Da' : 'Ne'}</td>
-                            <td>${courier.salary}</td>
-                            <td>${courier.average_rating}</td>
-                            <td>
-                                <button class="btn-edit" onclick="editCourier('${courier.id}')">Izmeni</button>
-                                <button class="btn-delete" onclick="deleteCourier('${courier.id}')">Obriši</button>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                    allCouriers = data.couriers;
+                } else {
+                    allCouriers = [];
                 }
+                applyFilters();
             } catch (error) {
                 console.error('Greška pri učitavanju dostavljača:', error);
             }
@@ -382,6 +587,24 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadCouriers(); // Učitavanje podataka odmah po otvaranju stranice
+
+            // Povezivanje input/change slušalaca na sve filtere za instant pretragu
+            document.getElementById('search-basic').addEventListener('input', applyFilters);
+            document.getElementById('filter-id').addEventListener('input', applyFilters);
+            document.getElementById('filter-name').addEventListener('input', applyFilters);
+            document.getElementById('filter-surname').addEventListener('input', applyFilters);
+            document.getElementById('filter-email').addEventListener('input', applyFilters);
+            document.getElementById('filter-phone').addEventListener('input', applyFilters);
+
+            document.querySelectorAll('input[name="filter-active"]').forEach(radio => {
+                radio.addEventListener('change', applyFilters);
+            });
+            document.querySelectorAll('input[name="filter-moto"]').forEach(radio => {
+                radio.addEventListener('change', applyFilters);
+            });
+            document.querySelectorAll('input[name="filter-car"]').forEach(radio => {
+                radio.addEventListener('change', applyFilters);
+            });
             
             document.querySelectorAll('th.sortable').forEach(th => {
                 let asc = true;
