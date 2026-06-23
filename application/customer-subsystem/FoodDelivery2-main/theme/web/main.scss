@@ -1,1 +1,17 @@
 @import "custom-variables";
+.menu-grid > ul {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 0;
+}
+
+.menu-grid > ul > li {
+  list-style: none;
+}
+
+.menu-card {
+  padding: 12px;
+  border-radius: 12px;
+  max-width: 100%;
+}
