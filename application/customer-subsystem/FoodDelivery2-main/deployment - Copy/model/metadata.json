@@ -1,0 +1,69 @@
+{
+  "RuntimeVersion": "10.24.21.108016",
+  "ProjectID": "45822b6c-81b1-4ae8-bd3b-df22e237c399",
+  "ProjectName": "FoodDelivery2",
+  "ModelVersion": "unversioned",
+  "Description": "",
+  "AdminUser": "MxAdmin",
+  "AdminRole": "8dd52bfa-6d7e-453b-b506-303c0a3d9567",
+  "JavaVersion": 21,
+  "Roles": {
+    "8dd52bfa-6d7e-453b-b506-303c0a3d9567": {
+      "Name": "Administrator",
+      "ManageableRoles": [
+        "8dd52bfa-6d7e-453b-b506-303c0a3d9567",
+        "53f5d6fa-6da9-4a71-b011-454ec052cce8",
+        "d57d239a-d105-43df-a9cf-928be679a4b7"
+      ]
+    },
+    "53f5d6fa-6da9-4a71-b011-454ec052cce8": {
+      "Name": "User"
+    },
+    "d57d239a-d105-43df-a9cf-928be679a4b7": {
+      "Name": "Korisnik",
+      "ManageableRoles": [
+        "53f5d6fa-6da9-4a71-b011-454ec052cce8"
+      ]
+    }
+  },
+  "Constants": [
+    {
+      "Name": "FeedbackModule.ClientIdentifier",
+      "Type": "String",
+      "Description": "",
+      "DefaultValue": "Feedback Module 4.0.2"
+    },
+    {
+      "Name": "FeedbackModule.LocalStorageKey",
+      "Type": "String",
+      "Description": "",
+      "DefaultValue": "mxfeedback-form-data"
+    }
+  ],
+  "ScheduledEvents": [],
+  "Languages": [
+    "en_US"
+  ],
+  "Configuration": {
+    "SourceDatabaseType": "HSQLDB",
+    "SourceDatabaseName": "default",
+    "SourceBuiltInDatabasePath": "model/sampledata/data/database"
+  },
+  "RequestHandlers": [
+    {
+      "Name": "/api/",
+      "DefaultEnabled": true,
+      "MatchExactly": false
+    },
+    {
+      "Name": "/link/",
+      "DefaultEnabled": true,
+      "MatchExactly": false
+    },
+    {
+      "Name": "/p/",
+      "DefaultEnabled": false,
+      "MatchExactly": false
+    }
+  ]
+}

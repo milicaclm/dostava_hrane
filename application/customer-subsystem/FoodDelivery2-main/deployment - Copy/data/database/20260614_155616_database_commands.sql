@@ -1,0 +1,7 @@
+ALTER TABLE "myfirstmodule$order" ADD "myfirstmodule$order_restaurant" BIGINT NULL;
+CREATE INDEX "idx_myfirstmodule$order_myfirstmodule$order_restaurant" ON "myfirstmodule$order" ("myfirstmodule$order_restaurant" ASC,"id" ASC);
+INSERT INTO "mendixsystem$index" ("id", "table_id", "index_name") VALUES ('b891f259-6eca-3c80-a5b9-f8d73fd967d5', 'a5baea4c-17c2-4f38-9dde-754dbfa493a4', 'idx_myfirstmodule$order_myfirstmodule$order_restaurant');
+INSERT INTO "mendixsystem$index_column" ("index_id", "column_id", "sort_order", "ordinal") VALUES ('b891f259-6eca-3c80-a5b9-f8d73fd967d5', 'fbf4e460-35ed-4e90-a485-d0a3c06e9391', false, 0);
+INSERT INTO "mendixsystem$association" ("id", "association_name", "table_name", "parent_entity_id", "child_entity_id", "parent_column_name", "child_column_name", "child_fkc_name", "child_fkc_action", "storage_format") VALUES ('fbf4e460-35ed-4e90-a485-d0a3c06e9391', 'MyFirstModule.Order_Restaurant', 'myfirstmodule$order', 'a5baea4c-17c2-4f38-9dde-754dbfa493a4', '718e4aa1-e0e4-4211-924d-0c7df14ea272', 'id', 'myfirstmodule$order_restaurant', 'frn_myfirstmodule$order_myfirstmodule$order_restaurant', 2, 1);
+ALTER TABLE "myfirstmodule$order" ADD CONSTRAINT "frn_myfirstmodule$order_myfirstmodule$order_restaurant" FOREIGN KEY ( "myfirstmodule$order_restaurant" ) REFERENCES "myfirstmodule$restaurant" ( "id" ) ON DELETE SET NULL;
+UPDATE "mendixsystem$version" SET "versionnumber" = '4.2', "lastsyncdate" = '20260614 15:56:16';

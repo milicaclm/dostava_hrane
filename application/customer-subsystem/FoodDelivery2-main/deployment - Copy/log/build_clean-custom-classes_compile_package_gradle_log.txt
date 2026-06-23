@@ -1,0 +1,75 @@
+Initialized native services in: C:\Users\Korisnik\.gradle\native
+Initialized jansi services in: C:\Users\Korisnik\.gradle\native
+Received JVM installation metadata from 'C:\Program Files\Eclipse Adoptium\jdk-21.0.5.11-hotspot': {JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-21.0.5.11-hotspot, JAVA_VERSION=21.0.5, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.5+11-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.5+11-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+The client will now receive all logging from the daemon (pid: 14916). The daemon log file: C:\Users\Korisnik\.gradle\daemon\8.5\daemon-14916.out.log
+Starting 4th build in daemon [uptime: 9 mins 40.103 secs, performance: 99%, GC rate: 0.00/s, heap usage: 0% of 512 MiB, non-heap usage: 15% of 384 MiB]
+Using 8 worker leases.
+Now considering [C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\settings.gradle'.
+Projects loaded. Root project using build file 'C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\build.gradle'.
+Included projects: [root project 'deployment']
+
+> Configure project :
+Evaluating root project 'deployment' using build file 'C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\build.gradle'.
+All projects evaluated.
+Task name matched 'clean-custom-classes'
+file or directory 'C:\Users\Korisnik\Mendix\FoodDelivery2-main\vendorlib', not found
+Task name matched 'compile'
+Task name matched 'package'
+Selected primary task 'clean-custom-classes' from project :
+Selected primary task 'compile' from project :
+Selected primary task 'package' from project :
+Tasks to be executed: [task ':clean-custom-classes', task ':compile', task ':package']
+Tasks that were excluded: []
+Resolve mutations for :clean-custom-classes (Thread[#132,Execution worker,5,main]) started.
+:clean-custom-classes (Thread[#132,Execution worker,5,main]) started.
+destroyer locations for task group 0 (Thread[#131,included builds,5,main]) started.
+destroyer locations for task group 1 (Thread[#131,included builds,5,main]) started.
+
+> Task :clean-custom-classes
+Caching disabled for task ':clean-custom-classes' because:
+  Build cache is disabled
+Task ':clean-custom-classes' is not up-to-date because:
+  Task has not declared any outputs despite executing actions.
+Resolve mutations for :compile (Thread[#132,Execution worker,5,main]) started.
+:compile (Thread[#132,Execution worker,5,main]) started.
+
+> Task :compile
+Caching disabled for task ':compile' because:
+  Build cache is disabled
+Task ':compile' is not up-to-date because:
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\administration has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\administration\proxies has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\atlas_web_content has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\datawidgets has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\feedbackmodule has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\fileuploader has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\myfirstmodule has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\nanoflowcommons has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\system has been removed.
+  Output property 'destinationDirectory' file C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment\run\bin\webactions has been removed.
+The input changes require a full rebuild for incremental task ':compile'.
+file or directory 'C:\Users\Korisnik\Mendix\FoodDelivery2-main\vendorlib', not found
+Full recompilation is required because no incremental change information is available. This is usually caused by clean builds or changing compiler arguments.
+Compiling with toolchain 'C:\Program Files\Eclipse Adoptium\jdk-21.0.5.11-hotspot'.
+Compiling with JDK Java compiler API.
+Class dependency analysis for incremental compilation took 0.067 secs.
+Created classpath snapshot for incremental compilation in 0.002 secs.
+Resolve mutations for :package (Thread[#132,Execution worker,5,main]) started.
+:package (Thread[#132,Execution worker,5,main]) started.
+
+> Task :package UP-TO-DATE
+Caching disabled for task ':package' because:
+  Build cache is disabled
+Skipping task ':package' as it is up-to-date.
+
+BUILD SUCCESSFUL in 3s
+3 actionable tasks: 2 executed, 1 up-to-date
+Watched directory hierarchies: [C:\Users\Korisnik\Mendix\FoodDelivery2-main\deployment]
+
+Note: C:\Users\Korisnik\Mendix\FoodDelivery2-main\javasource\myfirstmodule\proxies\microflows\Microflows.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
