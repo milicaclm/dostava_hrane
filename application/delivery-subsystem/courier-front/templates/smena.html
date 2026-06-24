@@ -4,65 +4,515 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Početna - Dostavljač</title>
+    <title>Smena - Dostavljač</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
-            color: #333;
-            background-color: #f8f9fa;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            color: #1e293b;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            padding: 40px;
+            text-align: center;
+            transition: all 0.4s ease;
         }
 
         h1 {
-            text-align: center;
-            margin-bottom: 40px;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .content-block {
-            max-width: 600px;
-            margin: 40px auto 0 auto;
-            padding: 30px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-
-        .content-block p {
-            font-size: 1.1em;
-            line-height: 1.6;
+        p.subtitle {
+            font-size: 1.05rem;
+            color: #64748b;
             margin-bottom: 30px;
-            color: #555;
         }
 
-        .action-button {
-            padding: 15px 30px;
-            background-color: #28a745;
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .status-badge.off {
+            background-color: #fee2e2;
+            color: #ef4444;
+        }
+
+        .status-badge.on {
+            background-color: #dcfce7;
+            color: #22c55e;
+        }
+
+        .status-badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+
+        .status-badge.on .dot {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.4; }
+            100% { transform: scale(0.9); opacity: 1; }
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px 32px;
+            border-radius: 16px;
+            border: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-end {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-end:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .offers-section {
+            margin-top: 40px;
+            text-align: left;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 30px;
+        }
+
+        .offers-section h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .offers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .offer-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+            transition: all 0.3s ease;
+        }
+
+        .offer-card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.04);
+            border-color: #cbd5e1;
+        }
+
+        .offer-details {
+            margin-bottom: 20px;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+
+        .detail-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .detail-icon {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #64748b;
+            min-width: 60px;
+        }
+
+        .detail-value {
+            color: #334155;
+        }
+
+        .offer-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .btn-accept {
+            background: #10b981;
             color: white;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1.2em;
-            transition: background-color 0.3s;
         }
 
-        .action-button:hover {
-            background-color: #218838;
+        .btn-accept:hover {
+            background: #059669;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-reject {
+            background: transparent;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-reject:hover {
+            background: #f1f5f9;
+            color: #334155;
+        }
+
+        .empty-offers {
+            text-align: center;
+            color: #94a3b8;
+            padding: 30px 20px;
+            border: 2px dashed #e2e8f0;
+            border-radius: 16px;
+            background: rgba(248, 250, 252, 0.5);
+            font-size: 0.95rem;
+        }
+
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 
 <body>
 
-    <h1>Započni smenu</h1>
+    <div class="container">
+        <!-- Status -->
+        <div id="status-container">
+            <div id="status-badge" class="status-badge off">
+                <span class="dot"></span>
+                <span id="status-text">Smena nije započeta</span>
+            </div>
+        </div>
 
-    <div class="content-block">
-        <p>Kliknite na dugme ispod da biste započeli smenu i postali dostupni za nove dostave.</p>
-        <button class="action-button">Start Smenu</button>
+        <div id="start-shift-view">
+            <h1>Započni smenu</h1>
+            <p class="subtitle">Aktivirajte smenu kako biste počeli da primate ponude za dostave.</p>
+            <button class="btn btn-start" id="btn-start-shift">Započni smenu</button>
+        </div>
+
+        <div id="active-shift-view" class="hidden">
+            <h1>Smena je aktivna</h1>
+            <p class="subtitle">Dostupni ste na mapi i sistem vam može dodeliti nove porudžbine.</p>
+            <button class="btn btn-end" id="btn-end-shift">Završi smenu</button>
+
+            <!-- Offers Section -->
+            <div class="offers-section">
+                <h2>
+                    Ponuđene dostave
+                    <span id="offers-count" style="font-size: 0.9rem; background: #e2e8f0; padding: 4px 10px; border-radius: 9999px; font-weight: normal; color: #475569;">0</span>
+                </h2>
+                <div id="offers-list-container" class="offers-list">
+                    <!-- Dynamic offers -->
+                </div>
+            </div>
+        </div>
     </div>
 
+    <script>
+        const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
+        const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
+
+        let pollingInterval = null;
+
+        function getUserIdFromToken(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload).sub;
+            } catch (e) {
+                console.error("Greška pri dekodiranju tokena:", e);
+                return null;
+            }
+        }
+
+        async function initPage() {
+            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+            if (!token) {
+                alert('Niste prijavljeni! Preusmeravanje...');
+                window.location.href = '/';
+                return;
+            }
+            const userId = getUserIdFromToken(token);
+            if (!userId) {
+                alert('Nevalidna sesija!');
+                return;
+            }
+
+            // Učitavanje korisničkog statusa
+            try {
+                const response = await fetch(`${API_USERS_URL}/${userId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const user = await response.json();
+                    updateUI(user.is_available);
+                } else {
+                    console.error('Greška pri učitavanju profila.');
+                }
+            } catch (error) {
+                console.error('Mrežna greška:', error);
+            }
+        }
+
+        function updateUI(isAvailable) {
+            const statusBadge = document.getElementById('status-badge');
+            const statusText = document.getElementById('status-text');
+            const startView = document.getElementById('start-shift-view');
+            const activeView = document.getElementById('active-shift-view');
+
+            if (isAvailable) {
+                statusBadge.className = 'status-badge on';
+                statusText.innerText = 'Na dužnosti';
+                startView.classList.add('hidden');
+                activeView.classList.remove('hidden');
+                
+                // Pokretanje periodičnog osvežavanja ponuda
+                fetchOffers();
+                if (!pollingInterval) {
+                    pollingInterval = setInterval(fetchOffers, 5000);
+                }
+            } else {
+                statusBadge.className = 'status-badge off';
+                statusText.innerText = 'Smena nije započeta';
+                startView.classList.remove('hidden');
+                activeView.classList.add('hidden');
+
+                // Zaustavljanje osvežavanja
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                }
+            }
+        }
+
+        async function fetchOffers() {
+            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+            const container = document.getElementById('offers-list-container');
+            const countBadge = document.getElementById('offers-count');
+
+            try {
+                const response = await fetch(`${API_DELIVERIES_URL}/offers`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const offers = await response.json();
+                    countBadge.innerText = offers.length;
+                    
+                    if (offers.length === 0) {
+                        container.innerHTML = `<div class="empty-offers">Trenutno nema novih ponuda. Ostanite na liniji!</div>`;
+                        return;
+                    }
+
+                    container.innerHTML = offers.map(offer => `
+                        <div class="offer-card" id="offer-${offer.id}">
+                            <div class="offer-details">
+                                <div class="detail-row">
+                                    <span class="detail-icon">📍</span>
+                                    <span class="detail-label">Od:</span>
+                                    <span class="detail-value">${offer.from_location}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-icon">🏁</span>
+                                    <span class="detail-label">Do:</span>
+                                    <span class="detail-value">${offer.to_location}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-icon">📦</span>
+                                    <span class="detail-label">Dostava:</span>
+                                    <span class="detail-value" style="font-family: monospace; font-size: 0.85rem;">${offer.id}</span>
+                                </div>
+                            </div>
+                            <div class="offer-actions">
+                                <button class="btn-action btn-accept" onclick="acceptOffer('${offer.id}')">Prihvati</button>
+                                <button class="btn-action btn-reject" onclick="rejectOffer('${offer.id}')">Odbij</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Greška pri dobavljanju ponuda:', error);
+            }
+        }
+
+        async function acceptOffer(deliveryId) {
+            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+            const userId = getUserIdFromToken(token);
+
+            try {
+                const response = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/accept`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Dostava je uspešno prihvaćena!');
+                    fetchOffers();
+                } else {
+                    alert('Greška: ' + (result.error || 'Nije moguće prihvatiti dostavu.'));
+                }
+            } catch (error) {
+                console.error('Greška:', error);
+            }
+        }
+
+        async function rejectOffer(deliveryId) {
+            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+            const userId = getUserIdFromToken(token);
+
+            try {
+                const response = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ courier_id: userId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Ponuda je odbijena.');
+                    fetchOffers();
+                } else {
+                    alert('Greška: ' + (result.error || 'Nije moguće odbiti ponudu.'));
+                }
+            } catch (error) {
+                console.error('Greška:', error);
+            }
+        }
+
+        // Start Shift
+        document.getElementById('btn-start-shift').addEventListener('click', async () => {
+            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+            const userId = getUserIdFromToken(token);
+
+            try {
+                const response = await fetch(`${API_USERS_URL}/${userId}/start_shift`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    updateUI(true);
+                } else {
+                    const result = await response.json();
+                    alert('Greška: ' + (result.error || 'Nije moguće započeti smenu.'));
+                }
+            } catch (error) {
+                console.error('Greška:', error);
+            }
+        });
+
+        // End Shift
+        document.getElementById('btn-end-shift').addEventListener('click', async () => {
+            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+            const userId = getUserIdFromToken(token);
+
+            try {
+                const response = await fetch(`${API_USERS_URL}/${userId}/end_shift`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    updateUI(false);
+                } else {
+                    const result = await response.json();
+                    alert('Greška: ' + (result.error || 'Nije moguće završiti smenu.'));
+                }
+            } catch (error) {
+                console.error('Greška:', error);
+            }
+        });
+
+        // Inicijalizacija pri učitavanju
+        window.addEventListener('load', initPage);
+    </script>
 </body>
 
 </html>

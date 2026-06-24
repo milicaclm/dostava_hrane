@@ -78,7 +78,8 @@ def get_user(user_id):
                 "car_license": user_node.get("car_license"),
                 "salary": user_node.get("salary"),
                 "average_rating": user_node.get("average_rating"),
-                "is_active": user_node["is_active"]
+                "is_active": user_node["is_active"],
+                "is_available": user_node.get("is_available", False)
             }
             return jsonify(user)
         else:
@@ -269,4 +270,55 @@ def unassign_vehicle(user_id, license_plate):
         ).single()
         if res and res["deleted_count"] > 0:
             return jsonify({"message": "Vehicle unassigned successfully"})
-        return jsonify({"error": "No assignment found between user and vehicle"}), 404
+        return jsonify({"error": "No assignment found between user and vehicle"}), 404
+
+
+@user_bp.route('/<user_id>/start_shift', methods=['POST'])
+@jwt_required()
+def start_shift(user_id):
+    current_user_id = get_jwt_identity()
+    with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_id != current_user_id and user_role != 'manager':
+            return jsonify({"error": "Forbidden"}), 403
+
+    with driver.session() as session:
+        user_rec = session.run(
+            "MATCH (u:User {id: $user_id}) WHERE u.account_type IN ['courier', 'delivery'] RETURN u",
+            user_id=user_id
+        ).single()
+        if not user_rec:
+            return jsonify({"error": "Courier not found"}), 404
+
+        session.run(
+            "MATCH (u:User {id: $user_id}) SET u.is_available = true RETURN u",
+            user_id=user_id
+        )
+
+    return jsonify({"message": "Shift started successfully, courier is now available"}), 200
+
+
+@user_bp.route('/<user_id>/end_shift', methods=['POST'])
+@jwt_required()
+def end_shift(user_id):
+    current_user_id = get_jwt_identity()
+    with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_id != current_user_id and user_role != 'manager':
+            return jsonify({"error": "Forbidden"}), 403
+
+    with driver.session() as session:
+        user_rec = session.run(
+            "MATCH (u:User {id: $user_id}) WHERE u.account_type IN ['courier', 'delivery'] RETURN u",
+            user_id=user_id
+        ).single()
+        if not user_rec:
+            return jsonify({"error": "Courier not found"}), 404
+
+        session.run(
+            "MATCH (u:User {id: $user_id}) SET u.is_available = false RETURN u",
+            user_id=user_id
+        )
+
+    return jsonify({"message": "Shift ended successfully, courier is now unavailable"}), 200
+

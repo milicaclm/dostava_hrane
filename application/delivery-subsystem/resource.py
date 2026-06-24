@@ -281,7 +281,7 @@ def create_courier():
         return jsonify({"error": "Courier ID is required"}), 400
     with driver.session() as session:
         session.run(
-            "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, account_type: 'courier', is_active: $is_active, password: $password, motorcycle_license: $motorcycle_license, car_license: $car_license, salary: $salary, average_rating: $average_rating})",
+            "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, account_type: 'courier', is_active: $is_active, password: $password, motorcycle_license: $motorcycle_license, car_license: $car_license, salary: $salary, average_rating: $average_rating, is_available: false})",
             id=courier_id,
             name=data["name"],
             surname=data["surname"],

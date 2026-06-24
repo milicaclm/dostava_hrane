@@ -475,6 +475,29 @@ def propose_couriers(delivery_id):
     return jsonify({'candidates': candidates})
 
 
+@delivery_bp.route('/offers', methods=['GET'])
+@jwt_required()
+def get_offered_deliveries():
+    courier_id = get_jwt_identity()
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (u:User {id: $courier_id})-[r:OFFERED {status: 'offered'}]->(d:Delivery) "
+            "RETURN d",
+            courier_id=courier_id
+        )
+        offers = []
+        for record in result:
+            d = record["d"]
+            offers.append({
+                "id": d.get("id"),
+                "status": d.get("status"),
+                "from_location": d.get("from_location"),
+                "to_location": d.get("to_location"),
+                "order_time": _fmt_dt(d.get("order_time"))
+            })
+    return jsonify(offers), 200
+
+
 @delivery_bp.route('/<delivery_id>/offer/<courier_id>', methods=['POST'])
 def offer_delivery_to_courier(delivery_id, courier_id):
     """Create an OFFER relationship from system to courier for this delivery."""
