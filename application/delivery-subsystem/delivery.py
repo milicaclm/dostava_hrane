@@ -1,10 +1,16 @@
 #servis za dostave
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 import os
 import requests
 from redis import Redis
 from neo4j import GraphDatabase
 delivery_bp = Blueprint('delivery', __name__)
+
+def get_user_role(session, user_id):
+    result = session.run("MATCH (u:User {id: $user_id}) RETURN u.account_type AS role", user_id=user_id)
+    record = result.single()
+    return record["role"] if record else None
 
 driver = GraphDatabase.driver(
     os.environ.get("NEO4J_URI", "bolt://neo4j:7687"), 
@@ -30,8 +36,14 @@ def _fmt_dt(v):
 
 
 @delivery_bp.route('/')
+@jwt_required()
 def get_deliveries():
+    current_user_id = get_jwt_identity()
     with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_role != 'manager':
+            return jsonify({"error": "Forbidden: Only managers can view the full list of deliveries"}), 403
+
         result = session.run("MATCH (d:Delivery) OPTIONAL MATCH (u:User)-[:ASSIGNED_TO]->(d) RETURN d, u")
         deliveries = []
         for record in result:

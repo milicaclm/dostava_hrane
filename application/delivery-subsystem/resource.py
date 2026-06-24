@@ -93,8 +93,14 @@ def get_products():
     return jsonify({"products": products})
 
 @resource_bp.route('/couriers')
+@jwt_required()
 def get_couriers():
+    current_user_id = get_jwt_identity()
     with driver.session() as session:
+        user_role = get_user_role(session, current_user_id)
+        if user_role != 'manager':
+            return jsonify({"error": "Forbidden: Only managers can view the full list of couriers"}), 403
+
         result = session.run("MATCH (u:User {account_type: 'courier'}) RETURN u")
         couriers = []
         for record in result:

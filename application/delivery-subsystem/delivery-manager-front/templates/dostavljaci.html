@@ -493,8 +493,13 @@
         }
 
         async function loadCouriers() {
+            const token = localStorage.getItem('jwt_token');
             try {
-                const response = await fetch(API_BASE_COURIERS);
+                const response = await fetch(API_BASE_COURIERS, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const data = await response.json();
                 
                 if (data.couriers) {
@@ -545,10 +550,14 @@
                 password: 'pass'
             };
 
+            const token = localStorage.getItem('jwt_token');
             try {
                 await fetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(payload)
                 });
                 closeModal();
@@ -558,16 +567,27 @@
 
         async function deleteCourier(id) {
             if (!confirm('Da li ste sigurni da želite da obrišete ovog dostavljača?')) return;
+            const token = localStorage.getItem('jwt_token');
             try {
-                await fetch(`${API_BASE_COURIERS}/${id}`, { method: 'DELETE' });
+                await fetch(`${API_BASE_COURIERS}/${id}`, { 
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 loadCouriers();
             } catch (e) { console.error(e); }
         }
 
         async function editCourier(id) {
             isEditMode = true;
+            const token = localStorage.getItem('jwt_token');
             try {
-                const resp = await fetch(API_BASE_COURIERS);
+                const resp = await fetch(API_BASE_COURIERS, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const data = await resp.json();
                 const c = data.couriers.find(x => x.id === id);
                 if (!c) return;

@@ -538,8 +538,13 @@
         }
 
         async function loadDeliveries() {
+            const token = localStorage.getItem('jwt_token');
             try {
-                const response = await fetch(API_BASE_DELIVERIES + '/');
+                const response = await fetch(API_BASE_DELIVERIES + '/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const data = await response.json();
                 
                 if (Array.isArray(data)) {
@@ -581,10 +586,14 @@
             const method = isEditMode ? 'PUT' : 'POST';
             const payload = isEditMode ? { status, from_location, to_location } : { id, status, from_location, to_location, order_time: new Date().toISOString(), rating };
 
+            const token = localStorage.getItem('jwt_token');
             try {
                 await fetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(payload)
                 });
                 closeModal();
@@ -594,16 +603,27 @@
 
         async function deleteDelivery(id) {
             if (!confirm('Da li ste sigurni da želite da obrišete ovu dostavu?')) return;
+            const token = localStorage.getItem('jwt_token');
             try {
-                await fetch(`${API_BASE_DELIVERIES}/${id}`, { method: 'DELETE' });
+                await fetch(`${API_BASE_DELIVERIES}/${id}`, { 
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 loadDeliveries();
             } catch (e) { console.error(e); }
         }
 
         async function editDelivery(id) {
             isEditMode = true;
+            const token = localStorage.getItem('jwt_token');
             try {
-                const resp = await fetch(`${API_BASE_DELIVERIES}/${id}`);
+                const resp = await fetch(`${API_BASE_DELIVERIES}/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const d = await resp.json();
                 document.getElementById('modalTitle').innerText = 'Izmena dostave';
                 document.getElementById('add-id').value = d.id;

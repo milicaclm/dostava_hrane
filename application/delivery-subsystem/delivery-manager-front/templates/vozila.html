@@ -1,4 +1,4 @@
-w<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="sr">
 
 <head>
@@ -509,8 +509,13 @@ w<!DOCTYPE html>
         }
 
         async function loadVehicles() {
+            const token = localStorage.getItem('jwt_token');
             try {
-                const response = await fetch(API_BASE_VEHICLES);
+                const response = await fetch(API_BASE_VEHICLES, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const data = await response.json();
                 
                 if (data.vehicles) {
@@ -560,11 +565,14 @@ w<!DOCTYPE html>
             const method = isEditMode ? 'PUT' : 'POST';
             const payload = { id, owner_id, license_plate, type, brand, model, color, is_ready: true, description: '' };
 
-
+            const token = localStorage.getItem('jwt_token');
             try {
                 await fetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(payload)
                 });
                 closeModal();
@@ -574,16 +582,27 @@ w<!DOCTYPE html>
 
         async function deleteVehicle(vehicleId) {
             if (!confirm('Da li ste sigurni da želite da obrišete ovo vozilo?')) return;
+            const token = localStorage.getItem('jwt_token');
             try {
-                await fetch(`${API_BASE_VEHICLES}/${vehicleId}`, { method: 'DELETE' });
+                await fetch(`${API_BASE_VEHICLES}/${vehicleId}`, { 
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 loadVehicles();
             } catch (e) { console.error(e); }
         }
 
         async function editVehicle(vehicleId) {
             isEditMode = true;
+            const token = localStorage.getItem('jwt_token');
             try {
-                const resp = await fetch(API_BASE_VEHICLES);
+                const resp = await fetch(API_BASE_VEHICLES, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const data = await resp.json();
                 const v = data.vehicles.find(x => x.id === vehicleId);
 
