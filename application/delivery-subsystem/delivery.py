@@ -54,7 +54,7 @@ def get_deliveries():
         result = session.run(
             "MATCH (d:Delivery) "
             "OPTIONAL MATCH (u:User)-[r:OFFERED]->(d) "
-            "WHERE r.status IN ['offered', 'pending', 'in transit', 'completed'] "
+            "WHERE r.status IN ['offered', 'pending', 'accepted', 'in transit', 'completed'] "
             "RETURN d, u, r.status AS status"
         )
         deliveries = []
@@ -85,13 +85,44 @@ def get_deliveries():
             })
     return jsonify(deliveries)
     
+@delivery_bp.route('/active', methods=['GET'])
+@jwt_required()
+def get_active_delivery():
+    """Return the active delivery assigned to this courier (status 'accepted' or 'in transit')."""
+    courier_id = get_jwt_identity()
+    print(f"--- [get_active_delivery] Checking active delivery for courier: {courier_id} ---", flush=True)
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (u:User {id: $courier_id})-[r:OFFERED]->(d:Delivery) "
+            "WHERE r.status IN ['accepted', 'in transit'] "
+            "RETURN d, r.status AS status",
+            courier_id=courier_id
+        ).single()
+        if result:
+            d = result["d"]
+            print(f"--- [get_active_delivery] Found active delivery: {d.get('id')} with status {result['status']} ---", flush=True)
+            return jsonify({
+                "id": d.get("id"),
+                "status": result["status"],
+                "from_location": d.get("from_location"),
+                "to_location": d.get("to_location"),
+                "order_time": _fmt_dt(d.get("order_time")),
+                "restaurant_lat": d.get("restaurant_lat"),
+                "restaurant_lon": d.get("restaurant_lon"),
+                "customer_lat": d.get("customer_lat"),
+                "customer_lon": d.get("customer_lon")
+            }), 200
+        print("--- [get_active_delivery] No active delivery found ---", flush=True)
+        return jsonify(None), 200
+
+
 @delivery_bp.route('/<delivery_id>')
 def get_delivery(delivery_id):
     with driver.session() as session:
         result = session.run(
             "MATCH (d:Delivery {id: $delivery_id}) "
             "OPTIONAL MATCH (u:User)-[r:OFFERED]->(d) "
-            "WHERE r.status IN ['offered', 'pending', 'in transit', 'completed'] "
+            "WHERE r.status IN ['offered', 'pending', 'accepted', 'in transit', 'completed'] "
             "RETURN d, u, r.status AS status", 
             delivery_id=delivery_id
         )
@@ -178,7 +209,7 @@ def update_delivery(delivery_id):
             status_res = session.run(
                 "MATCH (d:Delivery {id: $delivery_id}) "
                 "OPTIONAL MATCH (u:User)-[r:OFFERED]->(d) "
-                "WHERE r.status IN ['offered', 'pending', 'in transit', 'completed'] "
+                "WHERE r.status IN ['offered', 'pending', 'accepted', 'in transit', 'completed'] "
                 "RETURN r.status AS status",
                 delivery_id=delivery_id
             ).single()
@@ -358,7 +389,7 @@ def assign_courier(delivery_id, courier_id):
 
         cnt = session.run(
             "MATCH (c:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
-            "WHERE r.status IN ['offered', 'pending', 'in transit', 'completed'] "
+            "WHERE r.status IN ['offered', 'pending', 'accepted', 'in transit', 'completed'] "
             "RETURN count(r) AS cnt",
             courier_id=courier_id,
             delivery_id=delivery_id
@@ -368,7 +399,7 @@ def assign_courier(delivery_id, courier_id):
 
         other = session.run(
             "MATCH (other:User)-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
-            "WHERE r.status IN ['offered', 'pending', 'in transit', 'completed'] "
+            "WHERE r.status IN ['offered', 'pending', 'accepted', 'in transit', 'completed'] "
             "RETURN other.id AS other_id LIMIT 1",
             delivery_id=delivery_id
         ).single()
@@ -395,7 +426,7 @@ def get_assigned_courier(delivery_id):
     with driver.session() as session:
         result = session.run(
             "MATCH (c:User)-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
-            "WHERE r.status IN ['pending', 'in transit', 'completed'] "
+            "WHERE r.status IN ['pending', 'accepted', 'in transit', 'completed'] "
             "RETURN c",
             delivery_id=delivery_id
         )
@@ -833,6 +864,13 @@ def assign_deliveries_job():
     """
     global _pending_offers
 
+    # 0. Expire pending offers older than 15 seconds
+    now_time = time.time()
+    expired_couriers = [cid for cid, offer in _pending_offers.items() if now_time - offer['offered_at'] >= 15.0]
+    for cid in expired_couriers:
+        print(f"[Scheduler] Expiring pending offer for courier {cid} (delivery {_pending_offers[cid]['delivery_id']}) due to timeout", flush=True)
+        _pending_offers.pop(cid, None)
+
     with driver.session() as session:
         # 1. Find eligible deliveries:
         #    - No active DB relation (accepted / in transit)
@@ -940,7 +978,8 @@ def assign_deliveries_job():
                         restaurant_lat, restaurant_lon
                     )
                 else:
-                    courier_restaurant_distance = 1.0
+                    # Kurir bez pozicije = 0 doprinos od udaljenosti (nema prednosti ni kazne)
+                    courier_restaurant_distance = 0.0
 
                 if restaurant_lat is not None and restaurant_lon is not None and customer_lat is not None and customer_lon is not None:
                     restaurant_customer_distance = haversine_distance(
@@ -948,7 +987,8 @@ def assign_deliveries_job():
                         customer_lat, customer_lon
                     )
                 else:
-                    restaurant_customer_distance = 2.0
+                    # Dostava bez geo podataka = 0 doprinos od rute
+                    restaurant_customer_distance = 0.0
 
                 score = calculate_courier_score(
                     courier_restaurant_distance,

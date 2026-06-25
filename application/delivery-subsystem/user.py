@@ -4,8 +4,15 @@ import os
 from flask import Blueprint, jsonify, request
 from neo4j import GraphDatabase
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from redis import Redis
 
 user_bp = Blueprint('user', __name__)
+
+redis_client = Redis(
+    host=os.environ.get("REDIS_HOST", "localhost"),
+    port=int(os.environ.get("REDIS_PORT", 6379)),
+    decode_responses=True
+)
 
 
 driver = GraphDatabase.driver(
@@ -321,4 +328,30 @@ def end_shift(user_id):
         )
 
     return jsonify({"message": "Shift ended successfully, courier is now unavailable"}), 200
+
+
+@user_bp.route('/<user_id>/location', methods=['POST'])
+@jwt_required()
+def update_courier_location(user_id):
+    """Kurir šalje svoju GPS poziciju (lat/lon) — čuva se u Redis za scheduler."""
+    current_user_id = get_jwt_identity()
+    if user_id != current_user_id:
+        return jsonify({"error": "Forbidden"}), 403
+
+    data = request.get_json(force=True)
+    lat = data.get('lat')
+    lon = data.get('lon')
+
+    if lat is None or lon is None:
+        return jsonify({"error": "lat and lon are required"}), 400
+
+    try:
+        redis_client.hset(f"pos:{user_id}", mapping={
+            "lat": str(float(lat)),
+            "lon": str(float(lon))
+        })
+    except Exception as e:
+        return jsonify({"error": f"Redis error: {str(e)}"}), 500
+
+    return jsonify({"message": "Location updated", "lat": lat, "lon": lon}), 200
 

@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="sr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aktivna dostava - Dostavljač</title>
+    <!-- Leaflet.js za mapu -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --accent: #0000ff;
+            --accent-dark: #0000cc;
+            --green: #00ff00;
+            --green-dark: #00cc00;
+            --red: #ff0000;
+            --red-dark: #cc0000;
+            --yellow: #ffff00;
+            --yellow-dark: #cccc00;
+            --bg: #ffffff;
+            --surface: #ffffff;
+            --surface2: #eeeeee;
+            --border: #000000;
+            --text: #000000;
+            --muted: #000000;
+        }
+
+        body {
+            font-family: monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ---- Header ---- */
+        .header {
+            background: var(--surface);
+            border-bottom: 2px solid #000000;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-btn {
+            background: var(--surface2);
+            border: 2px solid #000000;
+            color: var(--text);
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #dddddd;
+        }
+
+        .delivery-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        .delivery-title span {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text);
+            background: var(--surface2);
+            border: 2px solid #000000;
+            padding: 2px 6px;
+            margin-left: 8px;
+        }
+
+        .status-pill {
+            padding: 6px 12px;
+            border: 2px solid #000000;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .status-pill.accepted { background: #0000ff; color: #ffffff; }
+        .status-pill.in-transit { background: var(--yellow); color: #000000; }
+        .status-pill.completed { background: var(--green); color: #000000; }
+        .status-pill.cancelled { background: var(--red); color: #ffffff; }
+
+        /* ---- Main layout ---- */
+        .main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 0;
+            height: calc(100vh - 65px);
+        }
+
+        /* ---- Map ---- */
+        .map-section {
+            position: relative;
+            border-right: 2px solid #000000;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .map-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffffff;
+            border: 2px solid #000000;
+            color: #000000;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 500;
+            white-space: nowrap;
+        }
+
+        .map-hint.hidden { display: none; }
+
+        /* ---- Side panel ---- */
+        .side-panel {
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            padding: 16px 20px;
+            border-bottom: 2px solid #000000;
+        }
+
+        .panel-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-label {
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        /* Route info */
+        .route-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .route-item:last-child { margin-bottom: 0; }
+
+        .route-dot {
+            width: 12px;
+            height: 12px;
+            border: 2px solid #000000;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+
+        .route-dot.pickup { background: #0000ff; }
+        .route-dot.delivery { background: var(--green); }
+
+        .route-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-bottom: 2px;
+        }
+
+        .route-addr {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: var(--text);
+            line-height: 1.3;
+        }
+
+        /* Info grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .info-card {
+            background: var(--surface);
+            border: 2px solid #000000;
+            padding: 8px 10px;
+        }
+
+        .info-card-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-bottom: 2px;
+        }
+
+        .info-card-value {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        /* Actions */
+        .actions-section {
+            padding: 16px 20px;
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-top: 2px solid #000000;
+            background: var(--surface2);
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 10px 16px;
+            border: 2px solid #000000;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-pickup {
+            background: #0000ff;
+            color: white;
+        }
+        .btn-pickup:hover { background: #0000cc; }
+
+        .btn-deliver {
+            background: var(--green);
+            color: black;
+        }
+        .btn-deliver:hover { background: var(--green-dark); }
+
+        .btn-cancel {
+            background: var(--red);
+            color: white;
+        }
+        .btn-cancel:hover { background: var(--red-dark); }
+
+
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+        }
+
+        .loading-overlay.hidden { display: none; }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            z-index: 9998;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: rgba(16,185,129,0.4); color: #34d399; }
+        .toast.error { border-color: rgba(239,68,68,0.4); color: #f87171; }
+
+        /* Completed / no delivery */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 12px;
+            color: var(--muted);
+            padding: 40px;
+            text-align: center;
+        }
+
+        .empty-state .icon { font-size: 3rem; }
+        .empty-state h2 { font-size: 1.2rem; color: var(--text); }
+        .empty-state p { font-size: 0.9rem; line-height: 1.6; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main {
+                grid-template-columns: 1fr;
+                grid-template-rows: 55vh 1fr;
+                height: auto;
+            }
+            .side-panel {
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <a href="/courier/smena.html" class="back-btn">← Nazad</a>
+            <div class="delivery-title">
+                Aktivna dostava
+                <span id="delivery-id-badge">—</span>
+            </div>
+        </div>
+        <div id="status-pill" class="status-pill accepted">Prihvaćena</div>
+    </div>
+
+    <!-- Main content -->
+    <div class="main">
+        <!-- Map -->
+        <div class="map-section">
+            <div id="map"></div>
+            <div id="map-hint" class="map-hint">📍 Klikni na mapu da označiš svoju trenutnu lokaciju</div>
+        </div>
+
+        <!-- Side panel -->
+        <div class="side-panel">
+            <!-- Route -->
+            <div class="panel-section">
+                <div class="section-label">Ruta dostave</div>
+                <div class="route-item">
+                    <div class="route-dot pickup"></div>
+                    <div>
+                        <div class="route-label">Preuzimanje (restoran)</div>
+                        <div class="route-addr" id="from-location">—</div>
+                    </div>
+                </div>
+                <div class="route-item">
+                    <div class="route-dot delivery"></div>
+                    <div>
+                        <div class="route-label">Isporuka (kupac)</div>
+                        <div class="route-addr" id="to-location">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div class="panel-section">
+                <div class="section-label">Informacije</div>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-label">Vreme narudžbine</div>
+                        <div class="info-card-value" id="order-time">—</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Status dostave</div>
+                        <div class="info-card-value" id="status-text">—</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Preuzeto u</div>
+                        <div class="info-card-value" id="pickup-time">—</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Isporučeno u</div>
+                        <div class="info-card-value" id="delivery-time">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions-section" id="actions-section">
+                <!-- Dinamički punjeno -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
+        const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
+
+        let map = null;
+        let courierMarker = null;
+        let pickupMarker = null;
+        let deliveryMarker = null;
+        let routeLine = null;
+        let currentDelivery = null;
+        let currentStatus = null;
+        let trackingInterval = null;
+        let checkInterval = null;
+
+        function getToken() {
+            return localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+        }
+
+        function getUserId() {
+            try {
+                const token = getToken();
+                const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                return payload.sub;
+            } catch (e) { return null; }
+        }
+
+        function getDeliveryIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+        }
+
+        function showToast(msg, type = '') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function formatDateTime(dtStr) {
+            if (!dtStr) return '—';
+            try {
+                const d = new Date(dtStr.replace(' ', 'T'));
+                return d.toLocaleString('sr-Latn', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch (e) { return dtStr; }
+        }
+
+        function statusLabel(status) {
+            const map = {
+                'accepted': 'Prihvaćena',
+                'in transit': 'U dostavi',
+                'completed': 'Isporučena',
+                'cancelled': 'Otkazana'
+            };
+            return map[status] || status;
+        }
+
+        function updateStatusUI(status) {
+            currentStatus = status;
+            
+            if (status === 'accepted' || status === 'in transit' || status === 'completed' || status === 'cancelled') {
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                    checkInterval = null;
+                }
+            }
+
+            const pill = document.getElementById('status-pill');
+            const statusText = document.getElementById('status-text');
+            statusText.textContent = statusLabel(status);
+
+            pill.className = 'status-pill';
+            if (status === 'accepted') pill.classList.add('accepted');
+            else if (status === 'in transit') pill.classList.add('in-transit');
+            else if (status === 'completed') pill.classList.add('completed');
+            else if (status === 'cancelled') pill.classList.add('cancelled');
+
+            renderActions(status);
+        }
+
+        function renderActions(status) {
+            const section = document.getElementById('actions-section');
+            const userId = getUserId();
+            const deliveryId = getDeliveryIdFromUrl();
+
+            if (status === 'offered' || status === 'pending' || status === 'placed') {
+                section.innerHTML = `
+                    <div style="display: flex; gap: 10px; width: 100%;">
+                        <button class="btn-action btn-cancel" style="flex: 1; background: #e74c3c;" onclick="doRejectOffer()">
+                            ✕ Odbij
+                        </button>
+                        <button class="btn-action btn-deliver" style="flex: 1; background: #2ecc71;" onclick="doAcceptOffer()">
+                            ✔ Prihvati
+                        </button>
+                    </div>
+                `;
+            } else if (status === 'accepted') {
+                section.innerHTML = `
+                    <button class="btn-action btn-pickup" onclick="doPickup()">
+                        🛵 Preuzeo/la sam narudžbinu
+                    </button>
+                    <button class="btn-action btn-cancel" onclick="doCancel()">
+                        ✕ Otkaži dostavu
+                    </button>
+                `;
+            } else if (status === 'in transit') {
+                section.innerHTML = `
+                    <button class="btn-action btn-deliver" onclick="doDeliver()">
+                        ✅ Isporučio/la sam narudžbinu
+                    </button>
+                    <button class="btn-action btn-cancel" onclick="doCancel()">
+                        ✕ Otkaži dostavu
+                    </button>
+                `;
+            } else if (status === 'completed') {
+                section.innerHTML = `
+                    <div class="empty-state" style="padding:20px;">
+                        <div class="icon">🎉</div>
+                        <h2>Dostava završena!</h2>
+                        <p>Uspešno si isporučio/la narudžbinu.</p>
+                    </div>
+                    <a href="/courier/smena.html" class="btn-action btn-deliver" style="text-decoration:none; margin-top:8px;">
+                        ← Nazad na smenu
+                    </a>
+                `;
+            } else if (status === 'cancelled') {
+                section.innerHTML = `
+                    <div class="empty-state" style="padding:20px;">
+                        <div class="icon">❌</div>
+                        <h2>Dostava otkazana</h2>
+                        <p>Ova dostava je otkazana.</p>
+                    </div>
+                    <a href="/courier/smena.html" class="btn-action btn-pickup" style="text-decoration:none; margin-top:8px;">
+                        ← Nazad na smenu
+                    </a>
+                `;
+            }
+        }
+
+        async function doAcceptOffer() {
+            const userId = getUserId();
+            const deliveryId = getDeliveryIdFromUrl();
+            showLoading(true);
+            try {
+                const res = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/accept`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('✅ Dostava prihvaćena!', 'success');
+                    updateStatusUI('accepted');
+                } else {
+                    showToast('Greška: ' + (data.error || 'Neuspešno prihvatanje'), 'error');
+                }
+            } catch (e) {
+                showToast('Mrežna greška', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function doRejectOffer() {
+            const userId = getUserId();
+            const deliveryId = getDeliveryIdFromUrl();
+            showLoading(true);
+            try {
+                const res = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courier_id: userId })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('Odbijena ponuda.', '');
+                    updateStatusUI('cancelled');
+                } else {
+                    showToast('Greška: ' + (data.error || 'Neuspešno odbijanje'), 'error');
+                }
+            } catch (e) {
+                showToast('Mrežna greška', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // ---- Map init ----
+        function initMap(restaurantLat, restaurantLon, customerLat, customerLon) {
+            // Center on midpoint or available point
+            let centerLat = restaurantLat || customerLat || 45.25;
+            let centerLon = restaurantLon || customerLon || 19.83;
+            let zoom = 14;
+
+            if (restaurantLat && customerLat) {
+                centerLat = (restaurantLat + customerLat) / 2;
+                centerLon = (restaurantLon + customerLon) / 2;
+            }
+
+            map = L.map('map', { zoomControl: true }).setView([centerLat, centerLon], zoom);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Restaurant marker (purple)
+            if (restaurantLat && restaurantLon) {
+                const pickupIcon = L.divIcon({
+                    className: '',
+                    html: '<div style="background:#6366f1;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(99,102,241,0.6);"></div>',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                pickupMarker = L.marker([restaurantLat, restaurantLon], { icon: pickupIcon })
+                    .bindPopup('<b>🍕 Restoran</b><br>Mesto preuzimanja')
+                    .addTo(map);
+            }
+
+            // Customer marker (green)
+            if (customerLat && customerLon) {
+                const delivIcon = L.divIcon({
+                    className: '',
+                    html: '<div style="background:#10b981;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(16,185,129,0.6);"></div>',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                deliveryMarker = L.marker([customerLat, customerLon], { icon: delivIcon })
+                    .bindPopup('<b>🏠 Kupac</b><br>Mesto isporuke')
+                    .addTo(map);
+            }
+
+            // Route line
+            if (restaurantLat && restaurantLon && customerLat && customerLon) {
+                routeLine = L.polyline(
+                    [[restaurantLat, restaurantLon], [customerLat, customerLon]],
+                    { color: '#6366f1', weight: 4, opacity: 0.7, dashArray: '8 6' }
+                ).addTo(map);
+                map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+            }
+
+            // Click handler to place courier marker
+            map.on('click', function (e) {
+                placeCourierMarker(e.latlng.lat, e.latlng.lng, true);
+            });
+
+            // Hide hint after first use
+        }
+
+        function placeCourierMarker(lat, lon, fromClick = false) {
+            const courierIcon = L.divIcon({
+                className: '',
+                html: `<div style="
+                    background:#f59e0b;
+                    width:18px;height:18px;border-radius:50%;
+                    border:3px solid white;
+                    box-shadow:0 2px 10px rgba(245,158,11,0.7);
+                    animation:pulse-marker 1.5s infinite;
+                "></div>
+                <style>@keyframes pulse-marker{0%{transform:scale(1);}50%{transform:scale(1.3);}100%{transform:scale(1);}}</style>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+
+            if (courierMarker) {
+                courierMarker.setLatLng([lat, lon]);
+            } else {
+                courierMarker = L.marker([lat, lon], { icon: courierIcon })
+                    .bindPopup('<b>🛵 Ti si ovde</b>')
+                    .addTo(map);
+            }
+
+            if (fromClick) {
+                document.getElementById('map-hint').classList.add('hidden');
+                showToast('📍 Lokacija zabeležena!', 'success');
+            }
+
+            // Save to Redis via API
+            saveLocationToServer(lat, lon);
+        }
+
+        async function saveLocationToServer(lat, lon) {
+            const userId = getUserId();
+            if (!userId) return;
+            try {
+                await fetch(`${API_USERS_URL}/${userId}/location`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lat, lon })
+                });
+            } catch (e) {
+                console.warn('Greška pri čuvanju lokacije:', e);
+            }
+        }
+
+
+
+        // ---- Delivery actions ----
+        async function doPickup() {
+            const userId = getUserId();
+            const deliveryId = getDeliveryIdFromUrl();
+            showLoading(true);
+            try {
+                const res = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/pickup`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courier_id: userId })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('✅ Preuzimanje zabeleženo!', 'success');
+                    updateStatusUI('in transit');
+                } else {
+                    showToast('Greška: ' + (data.error || 'Neuspešno preuzimanje'), 'error');
+                }
+            } catch (e) {
+                showToast('Mrežna greška', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function doDeliver() {
+            const userId = getUserId();
+            const deliveryId = getDeliveryIdFromUrl();
+            showLoading(true);
+            try {
+                const res = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/deliver`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courier_id: userId })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('🎉 Dostava uspešno isporučena!', 'success');
+                    updateStatusUI('completed');
+                    document.getElementById('delivery-time').textContent = formatDateTime(new Date().toISOString());
+                } else {
+                    showToast('Greška: ' + (data.error || 'Neuspešno'), 'error');
+                }
+            } catch (e) {
+                showToast('Mrežna greška', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function doCancel() {
+            if (!confirm('Da li sigurno želiš da otkažeš ovu dostavu?')) return;
+            const userId = getUserId();
+            const deliveryId = getDeliveryIdFromUrl();
+            showLoading(true);
+            try {
+                const res = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ courier_id: userId })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('Dostava otkazana.', '');
+                    updateStatusUI('cancelled');
+                } else {
+                    showToast('Greška: ' + (data.error || 'Neuspešno'), 'error');
+                }
+            } catch (e) {
+                showToast('Mrežna greška', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // ---- Load delivery ----
+        async function loadDelivery() {
+            const deliveryId = getDeliveryIdFromUrl();
+            const token = getToken();
+
+            if (!deliveryId) {
+                showLoading(false);
+                document.getElementById('actions-section').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">❓</div>
+                        <h2>Nema ID dostave</h2>
+                        <p>Pristup je moguć samo sa validnim ID-em dostave u URL-u.</p>
+                    </div>
+                    <a href="/courier/smena.html" class="btn-action btn-pickup" style="text-decoration:none;">← Nazad</a>
+                `;
+                initMap(null, null, null, null);
+                return;
+            }
+
+            if (!token) {
+                window.location.href = '/courier/';
+                return;
+            }
+
+            document.getElementById('delivery-id-badge').textContent = '#' + deliveryId.slice(-6);
+
+            try {
+                const res = await fetch(`${API_DELIVERIES_URL}/${deliveryId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) {
+                    throw new Error('Dostava nije pronađena');
+                }
+
+                const d = await res.json();
+                currentDelivery = d;
+
+                // Populate UI
+                document.getElementById('from-location').textContent = d.from_location || '—';
+                document.getElementById('to-location').textContent = d.to_location || '—';
+                document.getElementById('order-time').textContent = formatDateTime(d.order_time);
+                document.getElementById('pickup-time').textContent = formatDateTime(d.pickup_time);
+                document.getElementById('delivery-time').textContent = formatDateTime(d.delivery_time);
+
+                const status = d.status || 'accepted';
+                updateStatusUI(status);
+
+                if (status === 'offered' || status === 'pending' || status === 'placed') {
+                    if (checkInterval) clearInterval(checkInterval);
+                    checkInterval = setInterval(async () => {
+                        try {
+                            const offersRes = await fetch(`${API_DELIVERIES_URL}/offers`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            if (offersRes.ok) {
+                                const offers = await offersRes.json();
+                                const isStillOffered = offers.some(o => o.id === deliveryId);
+                                if (!isStillOffered) {
+                                    clearInterval(checkInterval);
+                                    checkInterval = null;
+                                    showToast('Ponuda je istekla.', 'error');
+                                    setTimeout(() => {
+                                        window.location.href = '/courier/smena.html';
+                                    }, 1500);
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Greška pri periodičnoj proveri ponuda:', err);
+                        }
+                    }, 3000);
+                }
+
+                // Init map with geo coords
+                const rLat = d.restaurant_lat ? parseFloat(d.restaurant_lat) : null;
+                const rLon = d.restaurant_lon ? parseFloat(d.restaurant_lon) : null;
+                const cLat = d.customer_lat ? parseFloat(d.customer_lat) : null;
+                const cLon = d.customer_lon ? parseFloat(d.customer_lon) : null;
+
+                initMap(rLat, rLon, cLat, cLon);
+
+            } catch (e) {
+                showToast('Greška pri učitavanju dostave: ' + e.message, 'error');
+                initMap(null, null, null, null);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        window.addEventListener('load', loadDelivery);
+    </script>
+</body>
+
+</html>
