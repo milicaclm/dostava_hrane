@@ -272,6 +272,10 @@
                         'Authorization': `Bearer ${token}`
                     }
                 });
+                if (response.status === 401) {
+                    window.location.href = '/';
+                    return;
+                }
                 if (response.ok) {
                     const user = await response.json();
                     
@@ -279,6 +283,10 @@
                     const activeRes = await fetch(`${API_DELIVERIES_URL}/active`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
+                    if (activeRes.status === 401) {
+                        window.location.href = '/';
+                        return;
+                    }
                     if (activeRes.ok) {
                         const activeDel = await activeRes.json();
                         if (activeDel && activeDel.id) {
