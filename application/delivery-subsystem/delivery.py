@@ -6,6 +6,9 @@ import requests
 import math
 import time
 import threading
+import json
+import numpy as np
+from scipy.optimize import linear_sum_assignment
 from redis import Redis
 from neo4j import GraphDatabase
 delivery_bp = Blueprint('delivery', __name__)
@@ -809,6 +812,43 @@ def courier_cancel(delivery_id):
             traceback.print_exc()
     return jsonify({'message': 'Delivery cancelled by courier'}), 200
 
+@delivery_bp.route('/parameters', methods=['GET'])
+@jwt_required()
+def get_parameters():
+    try:
+        # Default values if not set
+        defaults = {
+            "weight_distance_to_restaurant": "2.0",
+            "weight_distance_route": "1.0",
+            "capacity_bicycle": "3",
+            "capacity_scooter": "6",
+            "capacity_car": "15"
+        }
+        
+        params = {}
+        for k, v in defaults.items():
+            val = redis_client.get(f"params:{k}")
+            params[k] = float(val) if val is not None else float(v)
+            
+        return jsonify(params), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@delivery_bp.route('/parameters', methods=['PUT'])
+@jwt_required()
+def update_parameters():
+    try:
+        data = request.json
+        keys = ["weight_distance_to_restaurant", "weight_distance_route", "capacity_bicycle", "capacity_scooter", "capacity_car"]
+        
+        for k in keys:
+            if k in data:
+                redis_client.set(f"params:{k}", str(data[k]))
+                
+        return jsonify({'message': 'Parameters updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -822,60 +862,51 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
-VEHICLE_CAPACITY = {
-    "bicycle": 3,
-    "scooter": 6,
-    "car": 15,
-    "van": 30,
-}
 
+def get_dynamic_params():
+    defaults = {
+        "weight_distance_to_restaurant": "2.0",
+        "weight_distance_route": "1.0",
+        "capacity_bicycle": "3",
+        "capacity_scooter": "6",
+        "capacity_car": "15"
+    }
+    params = {}
+    from delivery import redis_client
+    for k, v in defaults.items():
+        val = redis_client.get(f"params:{k}")
+        params[k] = float(val) if val is not None else float(v)
+    return params
 
 def calculate_courier_score(
     courier_restaurant_dist: float,
     restaurant_customer_dist: float,
     vehicle_type: str,
-    product_count: int
+    product_count: int,
+    params: dict
 ) -> float:
-    """
-    Lower score = better courier for this delivery.
-    Score = weighted sum of:
-      - distance from courier to restaurant (most important)
-      - total route length (restaurant -> customer)
-      - penalty if vehicle capacity is too small for the order
-    """
-    capacity = VEHICLE_CAPACITY.get(vehicle_type, 5)
+    cap_key = f"capacity_{vehicle_type}"
+    capacity = params.get(cap_key, params.get("capacity_bicycle"))
     capacity_penalty = max(0, product_count - capacity) * 10.0
-    score = (courier_restaurant_dist * 2.0) + (restaurant_customer_dist * 1.0) + capacity_penalty
+    score = (courier_restaurant_dist * params["weight_distance_to_restaurant"]) + (restaurant_customer_dist * params["weight_distance_route"]) + capacity_penalty
     return score
 
-
-
-
 def assign_deliveries_job():
-    """
-    Batch Dispatch job that runs every 20s.
-    
-    Rules:
-    - Offers are stored IN MEMORY only (_pending_offers dict), NOT in DB.
-    - A DB relation (OFFERED) is created ONLY when the courier clicks 'Accept'.
-    - Deliveries with CANCELLED history (and no active relation) have priority.
-    - Only couriers with is_available=True and no active DB relation (accepted/in transit)
-      AND no current in-memory offer are eligible.
-    """
     global _pending_offers
-
-    # 0. Expire pending offers older than 15 seconds
+    import time
     now_time = time.time()
     expired_couriers = [cid for cid, offer in _pending_offers.items() if now_time - offer['offered_at'] >= 15.0]
     for cid in expired_couriers:
         print(f"[Scheduler] Expiring pending offer for courier {cid} (delivery {_pending_offers[cid]['delivery_id']}) due to timeout", flush=True)
         _pending_offers.pop(cid, None)
 
+    params = get_dynamic_params()
+
+    from delivery import driver, redis_client
+    import numpy as np
+    from scipy.optimize import linear_sum_assignment
+
     with driver.session() as session:
-        # 1. Find eligible deliveries:
-        #    - No active DB relation (accepted / in transit)
-        #    - Not currently offered in memory to someone
-        #    Priority: deliveries with CANCELLED history come first.
         currently_offered_delivery_ids = {v['delivery_id'] for v in _pending_offers.values()}
 
         eligible_res = session.run(
@@ -884,7 +915,6 @@ def assign_deliveries_job():
             "    MATCH (u:User)-[r:OFFERED]->(d) "
             "    WHERE r.status IN ['accepted', 'in transit', 'completed'] "
             "} "
-            # Cancelled priority flag
             "OPTIONAL MATCH (u2:User)-[rc:OFFERED]->(d) WHERE rc.status = 'cancelled' "
             "RETURN d, count(rc) AS cancelled_count "
             "ORDER BY cancelled_count DESC"
@@ -894,18 +924,11 @@ def assign_deliveries_job():
         for record in eligible_res:
             d = record["d"]
             if d["id"] not in currently_offered_delivery_ids:
-                deliveries.append({
-                    "node": d,
-                    "cancelled_count": record["cancelled_count"]
-                })
+                deliveries.append({"node": d, "cancelled_count": record["cancelled_count"]})
 
         if not deliveries:
             return
 
-        # 2. Find available couriers:
-        #    - is_available = true
-        #    - No active DB relation (accepted / in transit)
-        #    - No current in-memory offer
         couriers_with_pending_offers = set(_pending_offers.keys())
 
         available_couriers_res = session.run(
@@ -925,7 +948,6 @@ def assign_deliveries_job():
         for record in available_couriers_res:
             courier_id = record["id"]
             if courier_id in couriers_with_pending_offers:
-                # Already has a pending in-memory offer, skip
                 continue
 
             vehicle_type = record["vehicle_type"]
@@ -948,11 +970,8 @@ def assign_deliveries_job():
         if not couriers:
             return
 
-        # 3. Match each delivery (priority order) to the best available courier
-        for delivery_entry in deliveries:
-            if not couriers:
-                break
-
+        cost_matrix = np.zeros((len(deliveries), len(couriers)))
+        for i, delivery_entry in enumerate(deliveries):
             d = delivery_entry["node"]
             delivery_id = d["id"]
 
@@ -968,49 +987,42 @@ def assign_deliveries_job():
             customer_lat = d.get("customer_lat")
             customer_lon = d.get("customer_lon")
 
-            best_courier = None
-            best_score = float('inf')
-
-            for courier in couriers:
+            for j, courier in enumerate(couriers):
+                courier_restaurant_distance = 0.0
+                restaurant_customer_distance = 0.0
                 if restaurant_lat is not None and restaurant_lon is not None and courier["lat"] is not None and courier["lon"] is not None:
                     courier_restaurant_distance = haversine_distance(
                         courier["lat"], courier["lon"],
                         restaurant_lat, restaurant_lon
                     )
-                else:
-                    # Kurir bez pozicije = 0 doprinos od udaljenosti (nema prednosti ni kazne)
-                    courier_restaurant_distance = 0.0
 
                 if restaurant_lat is not None and restaurant_lon is not None and customer_lat is not None and customer_lon is not None:
                     restaurant_customer_distance = haversine_distance(
                         restaurant_lat, restaurant_lon,
                         customer_lat, customer_lon
                     )
-                else:
-                    # Dostava bez geo podataka = 0 doprinos od rute
-                    restaurant_customer_distance = 0.0
 
                 score = calculate_courier_score(
                     courier_restaurant_distance,
                     restaurant_customer_distance,
                     courier["vehicle_type"],
-                    product_count
+                    product_count,
+                    params
                 )
+                cost_matrix[i, j] = score
 
-                if score < best_score:
-                    best_score = score
-                    best_courier = courier
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        for i, j in zip(row_ind, col_ind):
+            best_score = cost_matrix[i, j]
+            best_courier = couriers[j]
+            delivery_id = deliveries[i]["node"]["id"]
 
-            if best_courier:
-                # Store offer in memory ONLY – no DB write yet
-                _pending_offers[best_courier["id"]] = {
-                    "delivery_id": delivery_id,
-                    "score": best_score,
-                    "offered_at": time.time()
-                }
-                print(f"[Scheduler] In-memory offer: delivery {delivery_id} -> courier {best_courier['id']} (score={best_score:.2f}, cancelled_history={delivery_entry['cancelled_count']})")
-                couriers.remove(best_courier)
-
+            _pending_offers[best_courier["id"]] = {
+                "delivery_id": delivery_id,
+                "score": best_score,
+                "offered_at": time.time()
+            }
+            print(f"[Scheduler] In-memory offer: delivery {delivery_id} -> courier {best_courier['id']} (score={best_score:.2f})")
 
 def run_scheduler():
     # Allow some startup time for DB connections to stabilize

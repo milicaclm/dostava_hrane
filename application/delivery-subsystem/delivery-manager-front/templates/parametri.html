@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="sr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parametri Algoritma</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input[type="range"] {
+            width: calc(100% - 60px);
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        .range-value {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        .btn-save {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .btn-save:hover {
+            background-color: #218838;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Parametri Algoritma za Dodelu Dostava</h1>
+
+    <div class="container">
+        <div class="form-group">
+            <label for="weight_distance_to_restaurant">Težina: Udaljenost do restorana</label>
+            <input type="range" min="0" max="10" step="0.1" id="weight_distance_to_restaurant" oninput="document.getElementById('val_rest').innerText = this.value">
+            <span class="range-value" id="val_rest">2.0</span>
+        </div>
+        <div class="form-group">
+            <label for="weight_distance_route">Težina: Udaljenost restorana i kupca</label>
+            <input type="range" min="0" max="10" step="0.1" id="weight_distance_route" oninput="document.getElementById('val_route').innerText = this.value">
+            <span class="range-value" id="val_route">1.0</span>
+        </div>
+        <div class="form-group">
+            <label for="capacity_bicycle">Kapacitet: Bicikl (broj proizvoda)</label>
+            <input type="range" min="1" max="10" step="1" id="capacity_bicycle" oninput="document.getElementById('val_bic').innerText = this.value">
+            <span class="range-value" id="val_bic">3</span>
+        </div>
+        <div class="form-group">
+            <label for="capacity_scooter">Kapacitet: Motocikl/Skuter (broj proizvoda)</label>
+            <input type="range" min="1" max="20" step="1" id="capacity_scooter" oninput="document.getElementById('val_sco').innerText = this.value">
+            <span class="range-value" id="val_sco">6</span>
+        </div>
+        <div class="form-group">
+            <label for="capacity_car">Kapacitet: Automobil (broj proizvoda)</label>
+            <input type="range" min="5" max="50" step="1" id="capacity_car" oninput="document.getElementById('val_car').innerText = this.value">
+            <span class="range-value" id="val_car">15</span>
+        </div>
+
+        <button class="btn-save" onclick="saveParameters()">Sačuvaj Promene</button>
+    </div>
+
+    <script>
+        function getToken() {
+            return localStorage.getItem('jwt_token');
+        }
+
+        async function loadParameters() {
+            const token = getToken();
+            if (!token) return;
+
+            try {
+                const response = await fetch('/api/delivery-subsystem/parameters', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('weight_distance_to_restaurant').value = data.weight_distance_to_restaurant;
+                    document.getElementById('val_rest').innerText = data.weight_distance_to_restaurant;
+                    
+                    document.getElementById('weight_distance_route').value = data.weight_distance_route;
+                    document.getElementById('val_route').innerText = data.weight_distance_route;
+                    
+                    document.getElementById('capacity_bicycle').value = data.capacity_bicycle;
+                    document.getElementById('val_bic').innerText = data.capacity_bicycle;
+                    
+                    document.getElementById('capacity_scooter').value = data.capacity_scooter;
+                    document.getElementById('val_sco').innerText = data.capacity_scooter;
+                    
+                    document.getElementById('capacity_car').value = data.capacity_car;
+                    document.getElementById('val_car').innerText = data.capacity_car;
+                } else {
+                    console.error('Greška pri učitavanju parametara');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function saveParameters() {
+            const token = getToken();
+            if (!token) {
+                alert("Niste ulogovani.");
+                return;
+            }
+
+            const data = {
+                weight_distance_to_restaurant: parseFloat(document.getElementById('weight_distance_to_restaurant').value),
+                weight_distance_route: parseFloat(document.getElementById('weight_distance_route').value),
+                capacity_bicycle: parseInt(document.getElementById('capacity_bicycle').value),
+                capacity_scooter: parseInt(document.getElementById('capacity_scooter').value),
+                capacity_car: parseInt(document.getElementById('capacity_car').value)
+            };
+
+            try {
+                const response = await fetch('/api/delivery-subsystem/parameters', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    alert('Parametri su uspešno sačuvani.');
+                } else {
+                    alert('Došlo je do greške pri čuvanju.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Došlo je do greške pri komunikaciji sa serverom.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadParameters);
+    </script>
+</body>
+
+</html>

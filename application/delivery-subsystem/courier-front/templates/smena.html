@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smena - Dostavljač</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -218,6 +220,17 @@
             <p class="subtitle">Dostupni ste na mapi i sistem vam može dodeliti nove porudžbine.</p>
             <button class="btn btn-end" id="btn-end-shift">Završi smenu</button>
 
+            <!-- Map Section -->
+            <div id="map-container" class="hidden" style="margin-top: 20px; text-align: left; border-top: 2px solid #000000; padding-top: 15px;">
+                <h2 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 12px; color: #000000;">
+                    Vaša lokacija
+                </h2>
+                <div id="map" style="height: 250px; width: 100%; border: 2px solid #000000;"></div>
+                <div id="map-hint" style="color: #d97706; margin-top: 8px; font-size: 0.85rem; font-weight: bold;">
+                    📍 Klikni na mapu da označiš svoju trenutnu lokaciju
+                </div>
+            </div>
+
             <!-- Offers Section -->
             <div class="offers-section">
                 <h2>
@@ -237,6 +250,112 @@
 
         let pollingInterval = null;
         let activeDeliveryId = null;  // ID prihvaćene dostave (ako postoji)
+        let map = null;
+        let courierMarker = null;
+
+        function getToken() {
+            return localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+        }
+
+        function getUserId() {
+            const token = getToken();
+            return token ? getUserIdFromToken(token) : null;
+        }
+
+        function initMap() {
+            const mapContainer = document.getElementById('map-container');
+            mapContainer.classList.remove('hidden');
+            if (!map) {
+                map = L.map('map', { zoomControl: true }).setView([45.25, 19.83], 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap',
+                    maxZoom: 19
+                }).addTo(map);
+
+                map.on('click', function (e) {
+                    placeCourierMarker(e.latlng.lat, e.latlng.lng, true);
+                });
+            } else {
+                map.invalidateSize();
+            }
+        }
+
+        function hideMap() {
+            document.getElementById('map-container').classList.add('hidden');
+        }
+
+        function placeCourierMarker(lat, lon, fromClick = false) {
+            const courierIcon = L.divIcon({
+                className: '',
+                html: `<div style="
+                    background:#f59e0b;
+                    width:18px;height:18px;border-radius:50%;
+                    border:3px solid white;
+                    box-shadow:0 2px 10px rgba(245,158,11,0.7);
+                    animation:pulse-marker 1.5s infinite;
+                "></div>
+                <style>@keyframes pulse-marker{0%{transform:scale(1);}50%{transform:scale(1.3);}100%{transform:scale(1);}}</style>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+
+            if (courierMarker) {
+                courierMarker.setLatLng([lat, lon]);
+            } else {
+                courierMarker = L.marker([lat, lon], { icon: courierIcon })
+                    .bindPopup('<b>🛵 Ti si ovde</b>')
+                    .addTo(map);
+            }
+
+            if (fromClick) {
+                document.getElementById('map-hint').innerText = '📍 Lokacija zabeležena!';
+                setTimeout(() => {
+                    const hintEl = document.getElementById('map-hint');
+                    if (hintEl) hintEl.innerText = '📍 Klikni na mapu da promeniš svoju lokaciju';
+                }, 3000);
+                saveLocationToServer(lat, lon);
+            }
+        }
+
+        async function saveLocationToServer(lat, lon) {
+            const userId = getUserId();
+            if (!userId) return;
+            try {
+                await fetch(`${API_USERS_URL}/${userId}/location`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lat, lon })
+                });
+            } catch (e) {
+                console.warn('Greška pri čuvanju lokacije:', e);
+            }
+        }
+
+        async function loadCourierLocation() {
+            const userId = getUserId();
+            if (!userId) return;
+            try {
+                const response = await fetch(`${API_USERS_URL}/${userId}/location`, {
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.lat && data.lon) {
+                        placeCourierMarker(data.lat, data.lon, false);
+                        if (map) {
+                            map.setView([data.lat, data.lon], 14);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Greška pri učitavanju lokacije:', e);
+            }
+        }
 
         function getUserIdFromToken(token) {
             try {
@@ -315,6 +434,10 @@
                 startView.classList.add('hidden');
                 activeView.classList.remove('hidden');
                 
+                // Inicijalizuj mapu i učitaj sačuvanu lokaciju
+                initMap();
+                loadCourierLocation();
+
                 // Pokretanje periodičnog osvežavanja ponuda
                 fetchOffers();
                 if (!pollingInterval) {
@@ -325,6 +448,9 @@
                 statusText.innerText = 'Smena nije započeta';
                 startView.classList.remove('hidden');
                 activeView.classList.add('hidden');
+
+                // Sakrij mapu
+                hideMap();
 
                 // Zaustavljanje osvežavanja
                 if (pollingInterval) {
@@ -355,6 +481,9 @@
                         document.getElementById('status-badge').className = 'status-badge on';
                         document.getElementById('status-text').innerText = 'Na dužnosti';
                         
+                        initMap();
+                        loadCourierLocation();
+
                         showActiveDeliveryBanner(activeDeliveryId);
                         return;
                     } else {

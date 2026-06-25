@@ -6,3 +6,4 @@ requests==2.31.0
 Flask-JWT-Extended
 PyJWT
 gunicorn==21.2.0
+scipy

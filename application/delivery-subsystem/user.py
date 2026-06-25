@@ -354,4 +354,26 @@ def update_courier_location(user_id):
         return jsonify({"error": f"Redis error: {str(e)}"}), 500
 
     return jsonify({"message": "Location updated", "lat": lat, "lon": lon}), 200
+
+
+@user_bp.route('/<user_id>/location', methods=['GET'])
+@jwt_required()
+def get_courier_location(user_id):
+    """Vraća trenutnu GPS poziciju kurira iz Redisa."""
+    current_user_id = get_jwt_identity()
+    if user_id != current_user_id:
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        redis_data = redis_client.hgetall(f"pos:{user_id}")
+        if redis_data and redis_data.get("lat") is not None and redis_data.get("lon") is not None:
+            return jsonify({
+                "lat": float(redis_data.get("lat")),
+                "lon": float(redis_data.get("lon"))
+            }), 200
+        else:
+            return jsonify({"error": "Location not found"}), 404
+    except Exception as e:
+        return jsonify({"error": f"Redis error: {str(e)}"}), 500
+
 
