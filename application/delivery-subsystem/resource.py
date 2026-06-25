@@ -50,8 +50,8 @@ def get_vehicles():
         {query_base}
         OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u_assigned:User)
         WITH v, u_assigned.id AS assigned_user_id
-        OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
-        WHERE d.status IN ['accepted', 'in_transit']
+        OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[r:OFFERED]->(d:Delivery)
+        WHERE r.status IN ['accepted', 'in transit']
         WITH v, assigned_user_id, count(d) > 0 AS is_in_use
         RETURN v, assigned_user_id, is_in_use
         """
@@ -195,8 +195,8 @@ def update_vehicle(vehicle_id):
             SET v.license_plate = $license_plate, v.type = $type, v.is_ready = $is_ready, v.brand = $brand, v.model = $model,
             v.color = $color, v.description = $description
             WITH v
-            OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[:ASSIGNED_TO]->(d:Delivery)
-            WHERE d.status IN ['accepted', 'in_transit']
+            OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u:User)-[r:OFFERED]->(d:Delivery)
+            WHERE r.status IN ['accepted', 'in transit']
             WITH v, count(d) > 0 AS is_in_use
             RETURN v, is_in_use
             """,
