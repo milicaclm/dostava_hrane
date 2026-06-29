@@ -9,8 +9,7 @@ import threading
 import json
 import numpy as np
 from scipy.optimize import linear_sum_assignment
-from redis import Redis
-from neo4j import GraphDatabase
+from db import driver, redis_client
 delivery_bp = Blueprint('delivery', __name__)
 
 # In-memory store: { courier_id: {delivery_id, score, offered_at} }
@@ -21,17 +20,6 @@ def get_user_role(session, user_id):
     result = session.run("MATCH (u:User {id: $user_id}) RETURN u.account_type AS role", user_id=user_id)
     record = result.single()
     return record["role"] if record else None
-
-driver = GraphDatabase.driver(
-    os.environ.get("NEO4J_URI", "bolt://neo4j:7687"), 
-    auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
-)
-
-redis_client = Redis(
-    host=os.environ.get("REDIS_HOST", "localhost"),
-    port=int(os.environ.get("REDIS_PORT", 6379)),
-    decode_responses=True
-)
 
 INTERNAL_API_URL = os.environ.get("INTERNAL_API_URL", "http://localhost:8080")
 
@@ -383,6 +371,7 @@ def assign_courier(delivery_id, courier_id):
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
             return jsonify({"error": "Delivery not found"}), 404
 
+
         courier_rec = session.run(
             "MATCH (c:User {id: $courier_id}) WHERE c.account_type IN ['courier','delivery'] RETURN c",
             courier_id=courier_id
@@ -390,6 +379,7 @@ def assign_courier(delivery_id, courier_id):
         if not courier_rec:
             return jsonify({"error": "Courier not found or invalid account_type"}), 404
 
+        
         cnt = session.run(
             "MATCH (c:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "WHERE r.status IN ['offered', 'pending', 'accepted', 'in transit', 'completed'] "
@@ -865,14 +855,14 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 def get_dynamic_params():
     defaults = {
-        "weight_distance_to_restaurant": "2.0",
+        "weight_distance_to_restaurant": "8",
         "weight_distance_route": "1.0",
         "capacity_bicycle": "3",
         "capacity_scooter": "6",
         "capacity_car": "15"
     }
     params = {}
-    from delivery import redis_client
+    from db import redis_client
     for k, v in defaults.items():
         val = redis_client.get(f"params:{k}")
         params[k] = float(val) if val is not None else float(v)
@@ -902,9 +892,6 @@ def assign_deliveries_job():
 
     params = get_dynamic_params()
 
-    from delivery import driver, redis_client
-    import numpy as np
-    from scipy.optimize import linear_sum_assignment
 
     with driver.session() as session:
         currently_offered_delivery_ids = {v['delivery_id'] for v in _pending_offers.values()}
@@ -1032,8 +1019,15 @@ def run_scheduler():
             assign_deliveries_job()
         except Exception as e:
             import traceback
-            print(f"Error in delivery scheduler: {e}")
-            traceback.print_exc()
+            err_name = type(e).__name__
+            err_mod = type(e).__module__
+            if "ServiceUnavailable" in err_name or "ConnectionRefusedError" in err_name:
+                print(f"[Scheduler] Database (Neo4j) is not ready yet.", flush=True)
+            elif "ConnectionError" in err_name and "redis" in err_mod:
+                print(f"[Scheduler] Redis is not ready yet.", flush=True)
+            else:
+                print(f"Error in delivery scheduler: {e}", flush=True)
+                traceback.print_exc()
         time.sleep(15)  # Batch dispatch cycle: 15 seconds
 
 

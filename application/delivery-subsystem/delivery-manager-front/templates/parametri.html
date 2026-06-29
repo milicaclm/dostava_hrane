@@ -108,7 +108,7 @@
             if (!token) return;
 
             try {
-                const response = await fetch('/api/delivery-subsystem/parameters', {
+                const response = await fetch('/api/delivery-subsystem/deliveries/parameters', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
@@ -152,7 +152,7 @@
             };
 
             try {
-                const response = await fetch('/api/delivery-subsystem/parameters', {
+                const response = await fetch('/api/delivery-subsystem/deliveries/parameters', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',

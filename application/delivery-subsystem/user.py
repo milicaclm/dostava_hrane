@@ -2,23 +2,10 @@
 import uuid
 import os
 from flask import Blueprint, jsonify, request
-from neo4j import GraphDatabase
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from redis import Redis
+from db import driver, redis_client
 
 user_bp = Blueprint('user', __name__)
-
-redis_client = Redis(
-    host=os.environ.get("REDIS_HOST", "localhost"),
-    port=int(os.environ.get("REDIS_PORT", 6379)),
-    decode_responses=True
-)
-
-
-driver = GraphDatabase.driver(
-    os.environ.get("NEO4J_URI", "bolt://neo4j:7687"), 
-    auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
-)
 
 def get_user_role(session, user_id):
     result = session.run("MATCH (u:User {id: $user_id}) RETURN u.account_type AS role", user_id=user_id)
@@ -68,29 +55,9 @@ def get_users():
 @user_bp.route('/<user_id>')
 @jwt_required()
 def get_user(user_id):
-    with driver.session() as session:
-        result = session.run("MATCH (u:User {id: $user_id}) RETURN u", user_id=user_id)
-        record = result.single()
-        if record:
-            user_node = record["u"]
-            user = {
-                "id": user_node["id"],
-                "name": user_node["name"],
-                "surname": user_node["surname"],
-                "email": user_node["email"],
-                "phone_number": user_node["phone_number"],
-                "account_type": user_node["account_type"],
-                "account_status": user_node.get("account_status"),
-                "motorcycle_license": user_node.get("motorcycle_license"),
-                "car_license": user_node.get("car_license"),
-                "salary": user_node.get("salary"),
-                "average_rating": user_node.get("average_rating"),
-                "is_active": user_node["is_active"],
-                "is_available": user_node.get("is_available", False)
-            }
-            return jsonify(user)
-        else:
-            return jsonify({"error": "User not found"}), 404
+    import json
+    data = redis_client.get(f"user:{user_id}")
+    return jsonify(json.loads(data)) if data else (jsonify({"error": "User not found"}), 404)
         
 
 
@@ -143,6 +110,7 @@ def update_user(user_id):
                 "average_rating": user_node.get("average_rating"),
                 "is_active": user_node["is_active"]
             }
+            redis_client.delete(f"user:{user_id}")
             return jsonify(user)
         else:
             return jsonify({"error": "User not found"}), 404
@@ -160,6 +128,7 @@ def delete_user(user_id):
         result = session.run("MATCH (u:User {id: $user_id}) DETACH DELETE u RETURN COUNT(u) AS deleted_count", user_id=user_id)
         record = result.single()
         if record["deleted_count"] > 0:
+            redis_client.delete(f"user:{user_id}")
             return jsonify({"message": "User deleted successfully"})
         else:
             return jsonify({"error": "User not found"}), 404

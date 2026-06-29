@@ -3,8 +3,7 @@ from datetime import datetime
 import os
 from flask import Blueprint, jsonify, request
 import requests
-from redis import Redis
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client import Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 import threading
 from influxdb_client.client.delete_api import DeleteApi
@@ -18,19 +17,8 @@ active_threads = {}
 
 location_bp = Blueprint('location', __name__)
 
-redis_client = Redis(
-    host=os.environ.get("REDIS_HOST", "localhost"),
-    port=int(os.environ.get("REDIS_PORT", 6379)),
-    decode_responses=True
-)
+from db import redis_client, influx_client, influx_bucket, influx_org
 
-
-influx_url = os.environ.get("INFLUXDB_URL", "http://localhost:8086")
-influx_token = os.environ.get("INFLUXDB_TOKEN", "mytoken123")
-influx_org = os.environ.get("INFLUXDB_ORG", "docs")
-influx_bucket = os.environ.get("INFLUXDB_BUCKET", "geo_data")
-
-influx_client = InfluxDBClient(url=influx_url, token=influx_token, org=influx_org)
 write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 query_api = influx_client.query_api()
 delete_api = influx_client.delete_api()
@@ -162,6 +150,54 @@ def tracking_loop(user_id):
         delivery_id = data.get("delivery_id", "")
         delivery_status = data.get("delivery_status", "")
         vehicle_id = data.get("vehicle_id", "")
+
+        # Simulacija kretanja prema restoranu ili kupcu iz baze Neo4j
+        target_lat = None
+        target_lon = None
+        if delivery_id:
+            from db import driver
+            try:
+                with driver.session() as session:
+                    res = session.run("MATCH (d:Delivery {id: $id}) RETURN d", id=delivery_id).single()
+                    if res:
+                        d = res["d"]
+                        r_lat = d.get("restaurant_lat")
+                        r_lon = d.get("restaurant_lon")
+                        c_lat = d.get("customer_lat")
+                        c_lon = d.get("customer_lon")
+                        
+                        if delivery_status == "accepted" and r_lat is not None:
+                            target_lat = float(r_lat)
+                            target_lon = float(r_lon)
+                        elif delivery_status in ["in transit", "in_transit"] and c_lat is not None:
+                            target_lat = float(c_lat)
+                            target_lon = float(c_lon)
+            except Exception as db_err:
+                print(f"Error fetching delivery details for simulation: {db_err}")
+
+        # Ukoliko imamo metu i još nismo stigli, pomeramo poziciju za korak (~100m)
+        if target_lat is not None and target_lon is not None and lat != 0.0 and lon != 0.0:
+            import math
+            d_lat = target_lat - lat
+            d_lon = target_lon - lon
+            distance = math.sqrt(d_lat**2 + d_lon**2)
+            if distance > 0.0001:
+                step = 0.0008  # brzina kretanja po koraku (svakih 5 sekundi)
+                if distance <= step:
+                    lat = target_lat
+                    lon = target_lon
+                else:
+                    lat += (d_lat / distance) * step
+                    lon += (d_lon / distance) * step
+                
+                # Ažuriramo poziciju u Redis-u kako bi i front-end video kretanje
+                try:
+                    redis_client.hset(f"pos:{user_id}", mapping={
+                        "lat": str(lat),
+                        "lon": str(lon)
+                    })
+                except Exception as redis_err:
+                    print(f"Error updating simulated position in Redis: {redis_err}")
 
         point = (
             Point("geo_position")

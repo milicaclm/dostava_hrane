@@ -1,14 +1,12 @@
 import os
 from flask import Flask, jsonify, send_from_directory
-from redis import Redis
-from neo4j import GraphDatabase
-from influxdb_client import InfluxDBClient
 from flask_jwt_extended import JWTManager
 from delivery import delivery_bp
 from location import location_bp
 from analitics import analitics_bp
 from user import user_bp
 from resource import resource_bp
+from db import driver, redis_client, influx_client
 
 
 app = Flask(__name__)
@@ -16,24 +14,6 @@ app = Flask(__name__)
 # JWT Konfiguracija
 app.config['JWT_SECRET_KEY'] = 'dev-secret-key'
 jwt = JWTManager(app)
-
-# Inicijalizacija zajedničkih resursa
-driver = GraphDatabase.driver(
-    os.environ.get("NEO4J_URI", "bolt://neo4j:7687"),
-    auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
-)
-
-redis_client = Redis(
-    host=os.environ.get("REDIS_HOST", "localhost"),
-    port=int(os.environ.get("REDIS_PORT", 6379)),
-    decode_responses=True
-)
-
-influx_client = InfluxDBClient(
-    url=os.environ.get("INFLUXDB_URL", "http://localhost:8086"),
-    token=os.environ.get("INFLUXDB_TOKEN", "mytoken123"),
-    org=os.environ.get("INFLUXDB_ORG", "docs")
-)
 
 @app.route("/")
 def hello():
