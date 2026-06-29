@@ -726,3 +726,158 @@ $use-css-variables: true;
         grid-template-columns: 1fr;
     }
 }
+.mx-name-dataGrid2_2 th,
+.mx-name-dataGrid2_2 .th,
+.mx-name-dataGrid2_2 [role="columnheader"] {
+    text-align: center;
+    justify-content: center;
+}
+.mx-name-dataGrid2_4 th,
+.mx-name-dataGrid2_4 .th,
+.mx-name-dataGrid2_4 [role="columnheader"] {
+    text-align: center;
+    justify-content: center;
+}
+.mx-name-dataGrid2_5 th,
+.mx-name-dataGrid2_5 .th,
+.mx-name-dataGrid2_5 [role="columnheader"] {
+    text-align: center;
+    justify-content: center;
+}
+.analytics-card-grid > ul {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 0;
+    margin: 0;
+}
+
+.analytics-card-grid > ul > li {
+    list-style: none;
+}
+
+
+
+
+.mx-name-dataGrid2_5 th,
+.mx-name-dataGrid2_5 .th,
+.mx-name-dataGrid2_5 {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
+
+.mx-name-dataGrid2_5 th,
+.mx-name-dataGrid2_5 .th,
+.mx-name-dataGrid2_5 [role="columnheader"] {
+    background: #f9fafb;
+    font-weight: 700;
+    color: #374151;
+    text-align: center;
+    justify-content: center;
+    padding: 14px 16px;
+}
+.mx-name-dataGrid2_5 th,
+.mx-name-dataGrid2_5 .th,
+.mx-name-dataGrid2_5 [role="cell"] {
+    padding: 14px 16px;
+    text-align: center;
+    justify-content: center;
+    color: #374151;
+    font-weight: 500;
+}
+.mx-name-dataGrid2_5 th,
+.mx-name-dataGrid2_5 .th,
+.mx-name-dataGrid2_5 [role="row"] {
+    border-bottom: 1px solid #f1f5f9;
+}
+.mx-name-dataGrid2_5 th,
+.mx-name-dataGrid2_5 .th,
+.mx-name-dataGrid2_5 [role="row"]:hover {
+    background: #f9fafb;
+}
+
+
+
+.mx-name-dataGrid2_4 th,
+.mx-name-dataGrid2_4 .th,
+.mx-name-dataGrid2_4 {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
+
+.mx-name-dataGrid2_4 th,
+.mx-name-dataGrid2_4 .th,
+.mx-name-dataGrid2_4 [role="columnheader"] {
+    background: #f9fafb;
+    font-weight: 700;
+    color: #374151;
+    text-align: center;
+    justify-content: center;
+    padding: 14px 16px;
+}
+.mx-name-dataGrid2_4 th,
+.mx-name-dataGrid2_4 .th,
+.mx-name-dataGrid2_4 [role="cell"] {
+    padding: 14px 16px;
+    text-align: center;
+    justify-content: center;
+    color: #374151;
+    font-weight: 500;
+}
+.mx-name-dataGrid2_4 th,
+.mx-name-dataGrid2_4 .th,
+.mx-name-dataGrid2_4 [role="row"] {
+    border-bottom: 1px solid #f1f5f9;
+}
+.mx-name-dataGrid2_4 th,
+.mx-name-dataGrid2_4 .th,
+.mx-name-dataGrid2_4 [role="row"]:hover {
+    background: #f9fafb;
+}
+
+
+.mx-name-dataGrid2_2 th,
+.mx-name-dataGrid2_2 .th,
+.mx-name-dataGrid2_2 {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+}
+
+.mx-name-dataGrid2_2 th,
+.mx-name-dataGrid2_2 .th,
+.mx-name-dataGrid2_2 [role="columnheader"] {
+    background: #f9fafb;
+    font-weight: 700;
+    color: #374151;
+    text-align: center;
+    justify-content: center;
+    padding: 14px 16px;
+}
+.mx-name-dataGrid2_2 th,
+.mx-name-dataGrid2_2 .th,
+.mx-name-dataGrid2_2 [role="cell"] {
+    padding: 14px 16px;
+    text-align: center;
+    justify-content: center;
+    color: #374151;
+    font-weight: 500;
+}
+.mx-name-dataGrid2_2 th,
+.mx-name-dataGrid2_2 .th,
+.mx-name-dataGrid2_2 [role="row"] {
+    border-bottom: 1px solid #f1f5f9;
+}
+.mx-name-dataGrid2_2 th,
+.mx-name-dataGrid2_2 .th,
+.mx-name-dataGrid2_2 [role="row"]:hover {
+    background: #f9fafb;
+}
