@@ -3,7 +3,7 @@ from flask import Flask, jsonify, send_from_directory
 from flask_jwt_extended import JWTManager
 from delivery import delivery_bp
 from location import location_bp
-from analitics import analitics_bp
+from analytics import analytics_bp
 from user import user_bp
 from resource import resource_bp
 from db import driver, redis_client, influx_client
@@ -45,7 +45,7 @@ def serve_courier_files(path):
 
 app.register_blueprint(delivery_bp, url_prefix='/deliveries')
 app.register_blueprint(location_bp, url_prefix='/locations')
-app.register_blueprint(analitics_bp, url_prefix='/analitics')
+app.register_blueprint(analytics_bp, url_prefix='/analytics')
 app.register_blueprint(user_bp, url_prefix='/users')
 app.register_blueprint(resource_bp, url_prefix='/resources')
 

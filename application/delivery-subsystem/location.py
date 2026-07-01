@@ -77,6 +77,29 @@ def get_positions():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@location_bp.route("/current_position", methods=["GET"])
+def current_position():
+    """Vraća trenutnu poziciju kurira direktno iz Redis hash-a (real-time, bez InfluxDB upita)."""
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+    try:
+        data = redis_client.hgetall(f"pos:{user_id}")
+        if not data:
+            return jsonify(None), 200
+        return jsonify({
+            "lat": data.get("lat"),
+            "lon": data.get("lon"),
+            "delivery_id": data.get("delivery_id"),
+            "delivery_status": data.get("delivery_status"),
+            "vehicle_id": data.get("vehicle_id"),
+            "last_seen": data.get("last_seen")
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 #format vremena: 2024-06-01T12:00:00Z [YYYY-MM-DD'T'HH:MM:SS'Z']
 @location_bp.route("/delete_positions", methods=["DELETE"])
 def delete_position_points():

@@ -437,6 +437,7 @@
     <script>
         const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
         const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
+        const API_LOCATIONS_URL = 'http://localhost:8000/api/delivery-subsystem/locations';
 
         let map = null;
         let courierMarker = null;
@@ -720,19 +721,43 @@
 
         async function saveLocationToServer(lat, lon) {
             const userId = getUserId();
-            if (!userId) return;
+            const deliveryId = getDeliveryIdFromUrl();
+            if (!userId || !deliveryId) return;
             try {
-                await fetch(`${API_USERS_URL}/${userId}/location`, {
+                await fetch(`${API_LOCATIONS_URL}/set_position?user_id=${userId}`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${getToken()}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ lat, lon })
+                    body: JSON.stringify({ lat, lon, delivery_id: deliveryId })
                 });
             } catch (e) {
                 console.warn('Greška pri čuvanju lokacije:', e);
             }
+        }
+
+        // Poll courier position from Redis via backend and update map marker every 4s
+        function startPositionPolling() {
+            const userId = getUserId();
+            if (!userId || trackingInterval) return;
+            trackingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`${API_LOCATIONS_URL}/current_position?user_id=${userId}`, {
+                        headers: { 'Authorization': `Bearer ${getToken()}` }
+                    });
+                    if (!res.ok) return;
+                    const pos = await res.json();
+                    if (!pos || pos.lat == null || pos.lon == null) return;
+                    const lat = parseFloat(pos.lat);
+                    const lon = parseFloat(pos.lon);
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        placeCourierMarker(lat, lon, false);
+                    }
+                } catch (e) {
+                    console.warn('Greška pri praćenju pozicije:', e);
+                }
+            }, 4000);
         }
 
 
@@ -906,7 +931,10 @@
             }
         }
 
-        window.addEventListener('load', loadDelivery);
+        window.addEventListener('load', () => {
+            loadDelivery();
+            startPositionPolling();
+        });
     </script>
 </body>
 

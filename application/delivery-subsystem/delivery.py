@@ -648,20 +648,35 @@ def accept_offer(delivery_id):
             delivery_id=delivery_id
         )
 
+        # Get assigned vehicle
+        vehicle_id = ""
+        vehicle_res = session.run(
+            "MATCH (u:User {id: $user_id})-[:USES_VEHICLE]->(v:Vehicle) RETURN v.license_plate AS lp LIMIT 1",
+            user_id=user_id
+        ).single()
+        if vehicle_res:
+            vehicle_id = vehicle_res["lp"]
+
         # Remove from in-memory pending offers
         _pending_offers.pop(user_id, None)
 
         try:
             redis_client.hset(f"pos:{user_id}", mapping={
                 "delivery_id": delivery_id,
-                "delivery_status": "accepted"
+                "delivery_status": "accepted",
+                "vehicle_id": vehicle_id
             })
         except Exception:
             import traceback
             traceback.print_exc()
 
         try:
-            loc_payload = {"user_id": user_id, "delivery_id": delivery_id, "delivery_status": "accepted"}
+            loc_payload = {
+                "user_id": user_id,
+                "delivery_id": delivery_id,
+                "delivery_status": "accepted",
+                "vehicle_id": vehicle_id
+            }
             requests.post(f"{INTERNAL_API_URL}/locations/start", json=loc_payload, timeout=2)
         except Exception:
             import traceback

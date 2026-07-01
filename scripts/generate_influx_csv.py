@@ -1,5 +1,6 @@
 """
 Generate an influx.csv file with realistic time-series delivery tracking data.
+Uses OSRM routing API to simulate natural driving paths along streets of Novi Sad.
 
 Columns:
 _measurement,time,user_id,delivery_id,vehicle_id,lat,lon,delivery_status
@@ -10,43 +11,70 @@ Compatible with InfluxDB 2.x annotated CSV import.
 import csv
 import os
 from datetime import datetime, timedelta
-from random import uniform, randint, choice
+from random import randint, choice
+import requests
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "influx.csv")
 
-# Simulacija
 DRIVERS = ["user-del-1", "user-del-2", "user-del-3"]
 VEHICLES = {
-    "user-del-1": "bicycle",
-    "user-del-2": "scooter",
-    "user-del-3": "car"
+    "user-del-1": "car-1",
+    "user-del-2": "scooter-1",
+    "user-del-3": "bicycle-1"
 }
 
+DRIVER_START = {
+    "user-del-1": (45.2423, 19.8415),  # Bulevar oslobodjenja
+    "user-del-2": (45.2512, 19.8204),  # Detelinara
+    "user-del-3": (45.2341, 19.8282)   # Liman
+}
+
+RESTAURANTS = [
+    (45.2541, 19.8423),  # Centar
+    (45.2435, 19.8398),  # Futoska
+    (45.2512, 19.8490)   # Dunavski park
+]
+
+CUSTOMERS = [
+    (45.2392, 19.8354),  # Liman 3
+    (45.2498, 19.8032),  # Novo Naselje
+    (45.2612, 19.8184),  # Detelinara
+    (45.2381, 19.7990)   # Telep
+]
+
 START_TIME = datetime(2026, 6, 1, 8, 0, 0)
-
-# Centrirano na Novi Sad gde aplikacija i mapa zapravo rade
-BASE_LAT = 45.25
-BASE_LON = 19.83
-
 MEASUREMENT = "geo_position"
 
-STATUS_FLOW = [
-    {
-        "status": "accepted",
-        "min_min": 3,
-        "max_min": 6,
-    },
-    {
-        "status": "in_transit",
-        "min_min": 10,
-        "max_min": 20,
-    },
-    {
-        "status": "completed",
-        "min_min": 1,
-        "max_min": 2,
-    },
-]
+def get_osrm_route(start_lat, start_lon, end_lat, end_lon):
+    url = f"http://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}?overview=full&geometries=geojson"
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            if "routes" in data and len(data["routes"]) > 0:
+                coords = data["routes"][0]["geometry"]["coordinates"]
+                return [(lat, lon) for lon, lat in coords]
+    except Exception as e:
+        print(f"OSRM API request error (falling back to linear): {e}")
+    return [(start_lat, start_lon), (end_lat, end_lon)]
+
+def sample_route(coords, num_steps):
+    if not coords:
+        return []
+    if len(coords) == 1:
+        return coords * num_steps
+    
+    sampled = []
+    for i in range(num_steps):
+        idx = (i / (num_steps - 1)) * (len(coords) - 1) if num_steps > 1 else 0
+        idx_low = int(idx)
+        idx_high = min(idx_low + 1, len(coords) - 1)
+        weight = idx - idx_low
+        
+        lat = coords[idx_low][0] * (1 - weight) + coords[idx_high][0] * weight
+        lon = coords[idx_low][1] * (1 - weight) + coords[idx_high][1] * weight
+        sampled.append((lat, lon))
+    return sampled
 
 with open(OUT, "w", newline="", encoding="utf-8") as f:
     writer = csv.writer(f)
@@ -54,7 +82,6 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
     # --------------------------------------------------
     # InfluxDB Annotated CSV header
     # --------------------------------------------------
-
     writer.writerow([
         "#datatype",
         "measurement",
@@ -92,6 +119,7 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
     ])
 
     writer.writerow([
+        "",
         "_measurement",
         "time",
         "user_id",
@@ -105,131 +133,84 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
     total_rows = 0
     delivery_counter = 100
 
+    print("Generating simulation routes...")
     for driver in DRIVERS:
         current_time = START_TIME
-        vehicle_id = VEHICLES.get(driver, "scooter")
+        vehicle_id = VEHICLES[driver]
+        
+        # Start location for the driver
+        curr_lat, curr_lon = DRIVER_START[driver]
 
-        current_lat = BASE_LAT + uniform(-0.01, 0.01)
-        current_lon = BASE_LON + uniform(-0.01, 0.01)
-
-        # Svaki vozač odradi 6 dostava
-        for _ in range(6):
+        # Each driver performs 6 deliveries
+        for delivery_num in range(6):
             delivery_id = f"del-{delivery_counter}"
             delivery_counter += 1
 
-            will_be_canceled = randint(1, 100) <= 5
-            cancel_phase = (
-                choice(["accepted", "in_transit"])
-                if will_be_canceled
-                else None
-            )
+            # Choose random restaurant and customer
+            r_lat, r_lon = choice(RESTAURANTS)
+            c_lat, c_lon = choice(CUSTOMERS)
 
-            delivery_interrupted = False
+            # Generate routes
+            route_to_restaurant = get_osrm_route(curr_lat, curr_lon, r_lat, r_lon)
+            route_to_customer = get_osrm_route(r_lat, r_lon, c_lat, c_lon)
 
-            for phase in STATUS_FLOW:
-                if delivery_interrupted:
-                    break
+            # 1. Phase: accepted (moving to restaurant)
+            duration_acc = randint(3, 6)
+            steps_acc = duration_acc * 6  # 6 steps per minute (every 10s)
+            points_acc = sample_route(route_to_restaurant, steps_acc)
+            
+            for lat, lon in points_acc:
+                writer.writerow([
+                    "",
+                    MEASUREMENT,
+                    current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    driver,
+                    delivery_id,
+                    vehicle_id,
+                    round(lat, 6),
+                    round(lon, 6),
+                    "accepted",
+                ])
+                total_rows += 1
+                current_time += timedelta(seconds=10)
 
-                status = phase["status"]
+            # 2. Phase: in transit (moving to customer)
+            duration_transit = randint(10, 20)
+            steps_transit = duration_transit * 6
+            points_transit = sample_route(route_to_customer, steps_transit)
 
-                duration_minutes = randint(
-                    phase["min_min"],
-                    phase["max_min"],
-                )
+            for lat, lon in points_transit:
+                writer.writerow([
+                    "",
+                    MEASUREMENT,
+                    current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    driver,
+                    delivery_id,
+                    vehicle_id,
+                    round(lat, 6),
+                    round(lon, 6),
+                    "in transit",
+                ])
+                total_rows += 1
+                current_time += timedelta(seconds=10)
 
-                # ------------------------------------------
-                # Canceled delivery
-                # ------------------------------------------
-                if will_be_canceled and status == cancel_phase:
-                    duration_minutes = randint(
-                        1,
-                        max(1, duration_minutes // 2),
-                    )
+            # 3. Phase: completed (delivered)
+            # Add final delivery completion record
+            curr_lat, curr_lon = c_lat, c_lon
+            writer.writerow([
+                "",
+                MEASUREMENT,
+                current_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                driver,
+                delivery_id,
+                vehicle_id,
+                round(curr_lat, 6),
+                round(curr_lon, 6),
+                "completed",
+            ])
+            total_rows += 1
 
-                    end_phase_time = (
-                        current_time +
-                        timedelta(minutes=duration_minutes)
-                    )
+            # Break between deliveries
+            current_time += timedelta(minutes=randint(10, 20))
 
-                    while current_time < end_phase_time:
-                        current_lat += uniform(-0.0012, 0.0012)
-                        current_lon += uniform(-0.0012, 0.0012)
-
-                        writer.writerow([
-                            MEASUREMENT,
-                            current_time.strftime(
-                                "%Y-%m-%dT%H:%M:%SZ"
-                            ),
-                            driver,
-                            delivery_id,
-                            vehicle_id,
-                            round(current_lat, 6),
-                            round(current_lon, 6),
-                            status,
-                        ])
-
-                        total_rows += 1
-                        current_time += timedelta(seconds=10)
-
-                    writer.writerow([
-                        MEASUREMENT,
-                        current_time.strftime(
-                            "%Y-%m-%dT%H:%M:%SZ"
-                        ),
-                        driver,
-                        delivery_id,
-                        vehicle_id,
-                        round(current_lat, 6),
-                        round(current_lon, 6),
-                        "canceled",
-                    ])
-
-                    total_rows += 1
-                    delivery_interrupted = True
-                    continue
-
-                # ------------------------------------------
-                # Standard phases
-                # ------------------------------------------
-                end_phase_time = (
-                    current_time +
-                    timedelta(minutes=duration_minutes)
-                )
-
-                while current_time < end_phase_time:
-                    step = (
-                        0.0012
-                        if status in ["accepted", "in_transit"]
-                        else 0.0001
-                    )
-
-                    current_lat += uniform(-step, step)
-                    current_lon += uniform(-step, step)
-
-                    writer.writerow([
-                        MEASUREMENT,
-                        current_time.strftime(
-                            "%Y-%m-%dT%H:%M:%SZ"
-                        ),
-                        driver,
-                        delivery_id,
-                        vehicle_id,
-                        round(current_lat, 6),
-                        round(current_lon, 6),
-                        status,
-                    ])
-
-                    total_rows += 1
-                    current_time += timedelta(seconds=10)
-
-            # Pauza između dostava
-            current_time += timedelta(
-                minutes=randint(10, 20)
-            )
-
-            current_lat += uniform(-0.005, 0.005)
-            current_lon += uniform(-0.005, 0.005)
-
-print(
-    f"Uspešno generisano {total_rows} redova u {OUT}"
-)
+print(f"Successfully generated {total_rows} rows in {OUT}")
