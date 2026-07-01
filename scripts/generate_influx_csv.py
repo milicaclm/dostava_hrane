@@ -2,7 +2,7 @@
 Generate an influx.csv file with realistic time-series delivery tracking data.
 
 Columns:
-_measurement,time,user_id,delivery_id,lat,lon,delivery_status
+_measurement,time,user_id,delivery_id,vehicle_id,lat,lon,delivery_status
 
 Compatible with InfluxDB 2.x annotated CSV import.
 """
@@ -16,13 +16,19 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "influx.csv")
 
 # Simulacija
 DRIVERS = ["user-del-1", "user-del-2", "user-del-3"]
+VEHICLES = {
+    "user-del-1": "bicycle",
+    "user-del-2": "scooter",
+    "user-del-3": "car"
+}
 
 START_TIME = datetime(2026, 6, 1, 8, 0, 0)
 
-BASE_LAT = 44.817
-BASE_LON = 20.457
+# Centrirano na Novi Sad gde aplikacija i mapa zapravo rade
+BASE_LAT = 45.25
+BASE_LON = 19.83
 
-MEASUREMENT = "delivery_tracking"
+MEASUREMENT = "geo_position"
 
 STATUS_FLOW = [
     {
@@ -55,15 +61,17 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
         "dateTime:RFC3339",
         "tag",
         "tag",
-        "field",
-        "field",
-        "field",
+        "tag",
+        "double",
+        "double",
+        "string",
     ])
 
     writer.writerow([
         "#group",
         "false",
         "false",
+        "true",
         "true",
         "true",
         "false",
@@ -80,6 +88,7 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
         "",
         "",
         "",
+        "",
     ])
 
     writer.writerow([
@@ -87,6 +96,7 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
         "time",
         "user_id",
         "delivery_id",
+        "vehicle_id",
         "lat",
         "lon",
         "delivery_status",
@@ -97,6 +107,7 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
 
     for driver in DRIVERS:
         current_time = START_TIME
+        vehicle_id = VEHICLES.get(driver, "scooter")
 
         current_lat = BASE_LAT + uniform(-0.01, 0.01)
         current_lon = BASE_LON + uniform(-0.01, 0.01)
@@ -151,6 +162,7 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
                             ),
                             driver,
                             delivery_id,
+                            vehicle_id,
                             round(current_lat, 6),
                             round(current_lon, 6),
                             status,
@@ -166,6 +178,7 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
                         ),
                         driver,
                         delivery_id,
+                        vehicle_id,
                         round(current_lat, 6),
                         round(current_lon, 6),
                         "canceled",
@@ -200,6 +213,7 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
                         ),
                         driver,
                         delivery_id,
+                        vehicle_id,
                         round(current_lat, 6),
                         round(current_lon, 6),
                         status,
