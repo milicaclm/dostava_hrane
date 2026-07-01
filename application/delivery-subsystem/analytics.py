@@ -22,6 +22,8 @@ def prihvacene_po_vozilu():
         |> filter(fn: (r) => r["_measurement"] == "geo_position")
         |> filter(fn: (r) => r["_field"] == "delivery_status")
         |> filter(fn: (r) => r["_value"] == "accepted")
+        |> group(columns: ["vehicle_id", "delivery_id"])
+        |> first()
         |> group(columns: ["vehicle_id"])
         |> count()
         |> sort(columns: ["_value"], desc: true)
@@ -116,31 +118,38 @@ def efikasnost_dostave():
         return jsonify({"error": str(e)}), 500
 
 
-@analytics_bp.route('/delivery-congestion', methods=['GET'])
-def zagusenje_dostave():
+@analytics_bp.route('/worker-reliability', methods=['GET'])
+def pouzdanost_radnika():
     """
-    4. Analiza zagušenja po delivery_id.
-    map() kreira binarne kolone (1/0) za status 'canceled' i 'accepted'.
-    reduce() izračunava kumulativnu sumu oba statusa po svakoj dostavi pojedinačno.
+    4. Analiza pouzdanosti radnika.
+    Broji jedinstvene prihvaćene i otkazane dostave po radniku (user_id).
+    Zatim izračunava njihov odnos (canceled / accepted).
     """
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
         |> filter(fn: (r) => r["_measurement"] == "geo_position")
         |> filter(fn: (r) => r["_field"] == "delivery_status")
-        |> group(columns: ["delivery_id"])
+        |> filter(fn: (r) => r["_value"] == "canceled" or r["_value"] == "accepted")
+        |> group(columns: ["user_id", "delivery_id", "_value"])
+        |> first()
+        |> group(columns: ["user_id"])
         |> map(fn: (r) => ({{
             r with
-            is_canceled: if r["_value"] == "canceled" then 1 else 0,
-            is_accepted: if r["_value"] == "accepted" then 1 else 0
+            is_canceled: if r["_value"] == "canceled" then 1.0 else 0.0,
+            is_accepted: if r["_value"] == "accepted" then 1.0 else 0.0
         }}))
         |> reduce(
-            identity: {{canceled_total: 0, accepted_total: 0}},
+            identity: {{canceled_total: 0.0, accepted_total: 0.0}},
             fn: (r, accumulator) => ({{
                 canceled_total: accumulator.canceled_total + r.is_canceled,
                 accepted_total: accumulator.accepted_total + r.is_accepted
             }})
         )
+        |> map(fn: (r) => ({{
+            r with
+            ratio: if r.accepted_total > 0.0 then r.canceled_total / r.accepted_total else 0.0
+        }}))
     '''
     try:
         tables = client.query_api().query(query, org=influx_org)
@@ -148,9 +157,10 @@ def zagusenje_dostave():
         for table in tables:
             for record in table.records:
                 res.append({
-                    "delivery_id": record.values.get("delivery_id"),
+                    "user_id": record.values.get("user_id"),
                     "canceled_total": record.values.get("canceled_total"),
-                    "accepted_total": record.values.get("accepted_total")
+                    "accepted_total": record.values.get("accepted_total"),
+                    "ratio": record.values.get("ratio")
                 })
         return jsonify(res), 200
     except Exception as e:
@@ -173,6 +183,8 @@ def dostave_po_satima():
         |> filter(fn: (r) => r["_field"] == "delivery_status")
         |> filter(fn: (r) => r["_value"] == "accepted")
         |> group(columns: ["delivery_id"])
+        |> first()
+        |> group(columns: [])
         |> aggregateWindow(every: 1h, fn: count, createEmpty: false)
         |> map(fn: (r) => ({{r with hour_of_day: date.hour(t: r._time)}}))
         |> group(columns: ["hour_of_day"])
