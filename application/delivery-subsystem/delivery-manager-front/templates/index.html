@@ -8,149 +8,25 @@
     <!-- Povezivanje CSS fajla -->
     <!-- <link rel="stylesheet" href="style.css"> -->
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            min-height: 100vh;
-            /* Zauzima punu visinu ekrana */
-        }
-
-        .sidebar {
-            flex: 1;
-            /* Zauzima 1 deo prostora */
-            background-color: #f4f4f4;
-            /* Blaga pozadina radi lakšeg uočavanja */
-            padding: 40px;
-
-
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            /* Razdvaja navigaciju i profil na vrh i dno */
-        }
-
-        .main-content {
-            flex: 5;
-            /* Zauzima 5 delova prostora */
-            padding: 20px;
-            display: flex;
-            /* Dodato da bi iframe zauzeo punu visinu kontejnera */
-        }
-
-        iframe[name="content-frame"] {
-            flex: 1;
-            /* Zauzima sav preostali prostor u desnom delu */
-            border: none;
-            /* Uklanja podrazumevani okvir (border) oko iframe-a */
-            width: 100%;
-        }
-
-
-
-        nav ul {
-            list-style-type: none;
-            /* Uklanja tačkice sa liste */
-            padding: 0;
-            margin: 0;
-            margin-top: 30px;
-        }
-
-        nav li {
-            margin-bottom: 15px;
-            /* Razmak između linkova */
-        }
-
-        nav a {
-            text-decoration: none;
-            /* Uklanja podvlaku sa linkova */
-            color: #333;
-            font-size: 16px;
-            display: block;
-            /* Osigurava da svaki link zauzme ceo red u svom bloku */
-        }
-
-        nav a:hover {
-            color: #007bff;
-            /* Boja linka prilikom prelaska mišem */
-        }
-
-        .user-profile-wrapper {
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            /* Diskretna linija koja odvaja meni od profila */
-        }
-
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            justify-content: space-between;
-        }
-
-        .user-profile-details {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .profile-pic {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            /* Pravi okruglu sliku */
-            object-fit: cover;
-        }
-
-        .user-name {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-email {
-            font-size: 12px;
-            color: #777;
-        }
-
-        .dropdown-trigger {
-            cursor: pointer;
-            padding: 5px;
-            font-weight: bold;
-            font-size: 16px;
-            color: #555;
-            user-select: none;
-        }
-
-        .dropdown-trigger:hover {
-            color: #007bff;
-        }
-
-        .logout-dropdown {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed #ddd;
-        }
-
-        .btn-logout {
-            width: 100%;
-            padding: 8px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .btn-logout:hover {
-            background-color: #c82333;
-        }
+        body { margin: 0; padding: 0; display: flex; min-height: 100vh; font-family: sans-serif; }
+        .sidebar { flex: 1; background-color: #eee; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid #ccc; }
+        .main-content { flex: 5; padding: 20px; display: flex; }
+        iframe { flex: 1; border: none; width: 100%; }
+        nav ul { list-style-type: none; padding: 0; margin: 20px 0 0 0; }
+        nav li { margin-bottom: 10px; }
+        nav a { text-decoration: none; color: black; font-size: 16px; display: block; padding: 5px; border: 1px solid transparent; }
+        nav a:hover { background: #ddd; border: 1px solid #ccc; }
+        .user-profile-wrapper { padding-top: 15px; border-top: 1px solid #ccc; }
+        .user-profile { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .user-profile-details { display: flex; align-items: center; gap: 10px; }
+        .profile-pic { width: 40px; height: 40px; border: 1px solid #ccc; object-fit: cover; }
+        .user-name { font-weight: bold; color: black; }
+        .user-info { display: flex; flex-direction: column; }
+        .user-email { font-size: 12px; color: #666; }
+        .dropdown-trigger { cursor: pointer; padding: 5px; font-weight: bold; }
+        .logout-dropdown { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc; }
+        .btn-logout { width: 100%; padding: 8px; background-color: #fff; color: black; border: 1px solid #ccc; cursor: pointer; font-weight: bold; }
+        .btn-logout:hover { background: #ddd; }
     </style>
 </head>
 

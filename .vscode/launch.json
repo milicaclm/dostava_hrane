@@ -14,6 +14,12 @@
                 ],
                 "projectType": "flask"
             }
+        },
+        {
+            "type": "chrome",
+            "name": "http://127.0.0.1:3000/application/delivery-subsystem/courier-front/templates/dostava.html",
+            "request": "launch",
+            "url": "http://127.0.0.1:3000/application/delivery-subsystem/courier-front/templates/dostava.html"
         }
     ]
 }

@@ -6,309 +6,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dostave</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            /* Osnovni, čitljiv font */
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-
-        h1 {
-            text-align: center;
-            /* Centriran naslov gore */
-            margin-bottom: 40px;
-        }
-
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            /* Gura pretragu skroz levo, a dugme skroz desno */
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .search-box {
-            padding: 10px;
-            width: 300px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-
-        .search-group {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .btn-advanced {
-            padding: 10px 15px;
-            background-color: #007bff;
-            /* Plava boja za naprednu pretragu */
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .btn-advanced:hover {
-            background-color: #0056b3;
-        }
-
-        .btn-add {
-            padding: 10px 20px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .btn-add:hover {
-            background-color: #218838;
-        }
-
-        .btn-edit {
-            padding: 5px 10px;
-            background-color: #ffc107;
-            color: black;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        .btn-edit:hover {
-            background-color: #e0a800;
-        }
-
-        .btn-delete {
-            padding: 5px 10px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        .btn-delete:hover {
-            background-color: #c82333;
-        }
-
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 20px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 20px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 2px;
-            bottom: 2px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked+.slider {
-            background-color: #28a745;
-            /* Zelena boja kada je uključen */
-        }
-
-        input:checked+.slider:before {
-            transform: translateX(20px);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            /* Spaja ivice ćelija */
-        }
-
-        th,
-        td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        th {
-            background-color: #f8f9fa;
-            /* Blago siva pozadina zaglavlja tabele */
-            font-weight: bold;
-        }
-
-        th.sortable {
-            cursor: pointer;
-        }
-
-        th.sortable::after {
-            content: '\2195';
-            /* Neutralna strelica (gore-dole) */
-            margin-left: 5px;
-            opacity: 0.3;
-        }
-
-        th.sortable.asc::after {
-            content: '\2191';
-            /* Strelica nagore */
-            opacity: 1;
-        }
-
-        th.sortable.desc::after {
-            content: '\2193';
-            /* Strelica nadole */
-            opacity: 1;
-        }
-
-        th.sortable:hover {
-            background-color: #e2e6ea;
-        }
-
-        tr:hover {
-            background-color: #f1f1f1;
-            /* Hover efekat prilikom prelaska miša preko reda */
-        }
-
-        .advanced-search-panel {
-            background-color: #f8f9fa;
-            border: 1px solid #e2e6ea;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
-        }
-
-        .search-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .search-field {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .search-field label {
-            font-size: 13px;
-            font-weight: bold;
-            color: #495057;
-        }
-
-        .search-field input[type="text"],
-        .search-field select {
-            padding: 8px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .radio-group {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            height: 38px;
-        }
-
-        .radio-group label {
-            font-weight: normal;
-            font-size: 14px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .btn-clear {
-            padding: 8px 15px;
-            background-color: #e2e6ea;
-            color: #495057;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .btn-clear:hover {
-            background-color: #dae0e5;
-        }
-
-        /* Stilovi za Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-
-        .modal-content {
-            background-color: white;
-            margin: 10% auto;
-            padding: 20px;
-            border-radius: 8px;
-            width: 400px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        .modal-header {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label { display: block; margin-bottom: 5px; font-size: 14px; }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
+        body { font-family: sans-serif; margin: 20px; color: #333; background: #fff; }
+        h1 { text-align: center; margin-bottom: 20px; }
+        .controls { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .search-box { padding: 8px; width: 250px; border: 1px solid #ccc; font-size: 14px; }
+        .search-group { display: flex; gap: 10px; align-items: center; }
+        button { padding: 8px 12px; cursor: pointer; font-size: 14px; border: 1px solid #ccc; background: #eee; color: black; }
+        button:hover { background: #ddd; }
+        .btn-add { background: #dfd; color: #060; font-weight: bold; }
+        .btn-add:hover { background: #ced; }
+        .btn-edit { background: #ffe; }
+        .btn-delete { background: #fdd; color: #600; }
+        .toggle-container { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: bold; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border: 1px solid #000; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; border: 1px solid #000; }
+        input:checked + .slider { background-color: #000; }
+        input:checked + .slider:before { transform: translateX(20px); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
+        th { background-color: #eee; font-weight: bold; }
+        th.sortable { cursor: pointer; }
+        .advanced-search-panel { background-color: #fafafa; border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; }
+        .search-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+        .search-field { display: flex; flex-direction: column; gap: 5px; }
+        .search-field label { font-size: 12px; font-weight: bold; }
+        .search-field input, .search-field select { padding: 5px; border: 1px solid #ccc; }
+        .radio-group { display: flex; gap: 10px; align-items: center; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); }
+        .modal-content { background: white; margin: 15% auto; padding: 20px; border: 1px solid #ccc; width: 350px; }
+        .modal-header { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 2px; font-size: 12px; }
+        .form-group input, .form-group select { width: 100%; padding: 6px; border: 1px solid #ccc; box-sizing: border-box; }
     </style>
 </head>
 

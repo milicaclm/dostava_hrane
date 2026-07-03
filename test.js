@@ -1,42 +1,4 @@
-<!DOCTYPE html>
-<html lang="sr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aktivna dostava</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        body { font-family: sans-serif; margin: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        #map { width: 100%; height: 400px; margin-bottom: 20px; border: 1px solid #ccc; }
-        button { padding: 10px 15px; margin: 5px; font-size: 16px; cursor: pointer; }
-        .info { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; background: #f9f9f9; }
-        #toast { padding: 10px; margin-top: 10px; display: none; background: #eee; border: 1px solid #ccc; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="/courier/smena.html"><button>&larr; Nazad na smenu</button></a>
-        <h2>Dostava <span id="delivery-id-badge"></span> - <span id="status-text">Učitavanje...</span></h2>
 
-        <div id="toast"></div>
-
-        <div id="map"></div>
-        <p><i>Napomena: Klikni na mapu da zabeležiš svoju trenutnu lokaciju.</i></p>
-
-        <div class="info">
-            <p><strong>Restoran:</strong> <span id="from-location">—</span></p>
-            <p><strong>Kupac:</strong> <span id="to-location">—</span></p>
-            <p>Vreme narudžbine: <span id="order-time">—</span></p>
-            <p>Preuzeto: <span id="pickup-time">—</span></p>
-            <p>Isporučeno: <span id="delivery-time">—</span></p>
-        </div>
-
-        <div id="actions-section"></div>
-    </div>
-
-    <script>
         const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
         const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
         const API_LOCATIONS_URL = 'http://localhost:8000/api/delivery-subsystem/locations';
@@ -51,13 +13,7 @@
         let trackingInterval = null;
         let checkInterval = null;
 
-        function getToken() { 
-            try {
-                return localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token'); 
-            } catch (e) {
-                return localStorage.getItem('jwt_token');
-            }
-        }
+        function getToken() { return localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token'); }
         function getUserId() {
             try { return JSON.parse(atob(getToken().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub; } 
             catch (e) { return null; }
@@ -234,15 +190,7 @@
         async function loadDelivery() {
             const deliveryId = getDeliveryIdFromUrl();
             const token = getToken();
-            
-            if (!deliveryId) {
-                document.getElementById('actions-section').innerHTML = 'Greška: Nedostaje ID dostave u URL-u (?id=...).';
-                return;
-            }
-            if (!token) {
-                document.getElementById('actions-section').innerHTML = 'Greška: Niste prijavljeni (nedostaje token).';
-                return;
-            }
+            if (!deliveryId || !token) { document.getElementById('actions-section').innerHTML = 'Greška.'; return; }
 
             document.getElementById('delivery-id-badge').textContent = '#' + deliveryId;
             try {
@@ -280,5 +228,4 @@
         }
 
         window.addEventListener('load', () => { loadDelivery(); startPositionPolling(); });
-    </script>
-</body>
+    
