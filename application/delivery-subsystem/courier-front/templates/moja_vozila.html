@@ -187,26 +187,32 @@
             }
         }
 
-        async function loginAndFetchVehicles() {
+        function getToken() {
             try {
-                const loginResponse = await fetch(API_AUTH_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: 'marko@dostava.com', password: 'pass1234' })
-                });
+                return localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
+            } catch (e) {
+                return localStorage.getItem('jwt_token');
+            }
+        }
 
-                if (!loginResponse.ok) {
-                    throw new Error('Login failed!');
-                }
+        async function initPage() {
+            jwtToken = getToken();
+            if (!jwtToken) {
+                alert('Niste prijavljeni! Preusmeravanje...');
+                window.top.location.href = '/';
+                return;
+            }
+            CURRENT_USER_ID = getUserIdFromToken(jwtToken);
+            if (!CURRENT_USER_ID) {
+                alert('Nevalidna sesija!');
+                window.top.location.href = '/';
+                return;
+            }
 
-                const loginData = await loginResponse.json();
-                jwtToken = loginData.access_token; // Sačuvaj token
-                CURRENT_USER_ID = getUserIdFromToken(jwtToken) || CURRENT_USER_ID;
-
-                // Sada kada imamo token, učitavamo vozila
+            try {
                 await loadVehicles();
             } catch (error) {
-                console.error('Greška prilikom logina ili učitavanja vozila:', error);
+                console.error('Greška prilikom učitavanja vozila:', error);
                 document.querySelector('tbody').innerHTML = `<tr><td colspan="10" style="text-align:center; color: red;">Greška: Nije moguće dobaviti podatke. Proverite da li je backend pokrenut.</td></tr>`;
             }
         }
@@ -291,7 +297,7 @@
             if (vehiclesList && vehiclesList.length > 0) {
                 // Pronađi trenutno odabrano vozilo prijavljenog dostavljača među svim vozilima
                 const currentlyAssignedVehicle = allVehicles.find(v => v.assigned_user_id === CURRENT_USER_ID);
-                const currentAssignedPlate = currentlyAssignedVehicle ? currentlyAssignedVehicle.license_plate : null;
+                const currentAssignedId = currentlyAssignedVehicle ? currentlyAssignedVehicle.id : null;
 
                 vehiclesList.forEach(vehicle => {
                     const tr = document.createElement('tr');
@@ -306,9 +312,9 @@
 
                     let selectionHtml = '';
                     if (vehicle.assigned_user_id === CURRENT_USER_ID) {
-                        selectionHtml = `<button class="btn-unselect" onclick="unselectVehicle('${vehicle.license_plate}')">Otkaži</button>`;
+                        selectionHtml = `<button class="btn-unselect" onclick="unselectVehicle('${vehicle.id}')">Otkaži</button>`;
                     } else {
-                        selectionHtml = `<button class="btn-select" onclick="selectVehicle('${vehicle.license_plate}', ${currentAssignedPlate ? `'${currentAssignedPlate}'` : 'null'}, ${vehicle.in_use})">Odaberi</button>`;
+                        selectionHtml = `<button class="btn-select" onclick="selectVehicle('${vehicle.id}', ${currentAssignedId ? `'${currentAssignedId}'` : 'null'}, ${vehicle.in_use})">Odaberi</button>`;
                     }
 
                     tr.innerHTML = `
@@ -365,15 +371,15 @@
             }
         }
 
-        async function selectVehicle(licensePlate, currentAssignedPlate, isInUse) {
+        async function selectVehicle(vehicleId, currentAssignedId, isInUse) {
             if (isInUse) {
                 alert("Vozilo je zauzeto!");
                 return;
             }
             try {
-                if (currentAssignedPlate) {
+                if (currentAssignedId) {
                     // Otkaži prethodno odabrano vozilo
-                    await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/unassign_vehicle/${currentAssignedPlate}`, {
+                    await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/unassign_vehicle/${currentAssignedId}`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${jwtToken}`
@@ -382,7 +388,7 @@
                 }
                 
                 // Odaberi novo vozilo
-                const resp = await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/assign_vehicle/${licensePlate}`, {
+                const resp = await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/assign_vehicle/${vehicleId}`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${jwtToken}`
@@ -400,9 +406,9 @@
             }
         }
 
-        async function unselectVehicle(licensePlate) {
+        async function unselectVehicle(vehicleId) {
             try {
-                const resp = await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/unassign_vehicle/${licensePlate}`, {
+                const resp = await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/unassign_vehicle/${vehicleId}`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${jwtToken}`
@@ -444,10 +450,7 @@
             const model = document.getElementById('add-model').value;
             const color = document.getElementById('add-color').value;
 
-            if (!license_plate) {
-                alert("Registracija je obavezna!");
-                return;
-            }
+
 
             const url = isEditMode ? `${API_VEHICLES_URL}/${id}/update` : API_VEHICLES_URL;
             const method = isEditMode ? 'PUT' : 'POST';
@@ -505,7 +508,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            loginAndFetchVehicles(); // Pokrećemo ceo proces pri učitavanju stranice
+            initPage(); // Pokrećemo ceo proces pri učitavanju stranice
 
             // Povezivanje input/change slušalaca na sve filtere za instant pretragu
             document.getElementById('search-plate-basic').addEventListener('input', applyFilters);

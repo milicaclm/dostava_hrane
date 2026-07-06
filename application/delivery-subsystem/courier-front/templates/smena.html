@@ -71,9 +71,11 @@
     <script>
         const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
         const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
+        const API_LOCATIONS_URL = 'http://localhost:8000/api/delivery-subsystem/locations';
 
         let pollingInterval = null;
-        let activeDeliveryId = null;  // ID prihvaćene dostave (ako postoji)
+        let trackingInterval = null;
+        let activeDeliveryId = null;  
         let map = null;
         let courierMarker = null;
 
@@ -144,27 +146,29 @@
             }
         }
 
-        async function loadCourierLocation() {
+        function startPositionPolling() {
             const userId = getUserId();
-            if (!userId) return;
-            try {
-                const response = await fetch(`${API_USERS_URL}/${userId}/location`, {
-                    headers: {
-                        'Authorization': `Bearer ${getToken()}`
+            if (!userId || trackingInterval) return;
+            
+            let firstTime = true;
+            
+            const fetchPos = async () => {
+                try {
+                    const res = await fetch(`${API_LOCATIONS_URL}/current_position?user_id=${userId}`, {
+                        headers: { 'Authorization': `Bearer ${getToken()}` }
+                    });
+                    if (!res.ok) return;
+                    const pos = await res.json();
+                    if (!pos || pos.lat == null || pos.lon == null) return;
+                    placeCourierMarker(parseFloat(pos.lat), parseFloat(pos.lon), false);
+                    if (firstTime && map) {
+                        map.setView([parseFloat(pos.lat), parseFloat(pos.lon)], 14);
+                        firstTime = false;
                     }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data && data.lat && data.lon) {
-                        placeCourierMarker(data.lat, data.lon, false);
-                        if (map) {
-                            map.setView([data.lat, data.lon], 14);
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn('Greška pri učitavanju lokacije:', e);
-            }
+                } catch (e) { console.warn(e); }
+            };
+            fetchPos();
+            trackingInterval = setInterval(fetchPos, 1000);
         }
 
         function getUserIdFromToken(token) {
@@ -185,7 +189,7 @@
             const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
             if (!token) {
                 alert('Niste prijavljeni! Preusmeravanje...');
-                window.location.href = '/';
+                window.top.location.href = '/';
                 return;
             }
             const userId = getUserIdFromToken(token);
@@ -202,7 +206,7 @@
                     }
                 });
                 if (response.status === 401) {
-                    window.location.href = '/';
+                    window.top.location.href = '/';
                     return;
                 }
                 if (response.ok) {
@@ -213,7 +217,7 @@
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (activeRes.status === 401) {
-                        window.location.href = '/';
+                        window.top.location.href = '/';
                         return;
                     }
                     if (activeRes.ok) {
@@ -246,12 +250,12 @@
                 
                 // Inicijalizuj mapu i učitaj sačuvanu lokaciju
                 initMap();
-                loadCourierLocation();
+                startPositionPolling();
 
                 // Pokretanje periodičnog osvežavanja ponuda
                 fetchOffers();
                 if (!pollingInterval) {
-                    pollingInterval = setInterval(fetchOffers, 5000);
+                    pollingInterval = setInterval(fetchOffers, 1000);
                 }
             } else {
                 statusBadge.className = 'status-badge off';
@@ -266,6 +270,10 @@
                 if (pollingInterval) {
                     clearInterval(pollingInterval);
                     pollingInterval = null;
+                }
+                if (trackingInterval) {
+                    clearInterval(trackingInterval);
+                    trackingInterval = null;
                 }
             }
         }
@@ -292,7 +300,7 @@
                         document.getElementById('status-text').innerText = 'Na dužnosti';
                         
                         initMap();
-                        loadCourierLocation();
+                        startPositionPolling();
 
                         showActiveDeliveryBanner(activeDeliveryId);
                         return;

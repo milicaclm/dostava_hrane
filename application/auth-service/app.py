@@ -10,7 +10,9 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 auth_bp = Blueprint('auth', __name__)
 
 # JWT Konfiguracija
+from datetime import timedelta
 app.config['JWT_SECRET_KEY'] = 'dev-secret-key' # Consider using a more secure key in production
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=20)
 jwt = JWTManager(app)
 
 driver = GraphDatabase.driver(

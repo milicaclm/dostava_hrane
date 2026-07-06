@@ -177,9 +177,9 @@ def register():
         )
     return jsonify({"message": "User created successfully", "id": user_id}), 201
 
-@user_bp.route('/<user_id>/assign_vehicle/<license_plate>', methods=['POST'])
+@user_bp.route('/<user_id>/assign_vehicle/<vehicle_id>', methods=['POST'])
 @jwt_required()
-def assign_vehicle(user_id, license_plate):
+def assign_vehicle(user_id, vehicle_id):
     current_user_id = get_jwt_identity()
     with driver.session() as session:
         user_role = get_user_role(session, current_user_id)
@@ -195,41 +195,41 @@ def assign_vehicle(user_id, license_plate):
             return jsonify({"error": "User not found or invalid account_type"}), 404
 
         vehicle_rec = session.run(
-            "MATCH (v:Vehicle {license_plate: $license_plate}) RETURN v",
-            license_plate=license_plate
+            "MATCH (v:Vehicle {id: $vehicle_id}) RETURN v",
+            vehicle_id=vehicle_id
         ).single()
         if not vehicle_rec:
             return jsonify({"error": "Vehicle not found"}), 404
 
         cnt = session.run(
-            "MATCH (u:User {id: $user_id})-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) RETURN count(r) AS cnt",
+            "MATCH (u:User {id: $user_id})-[r:USES_VEHICLE]->(v:Vehicle {id: $vehicle_id}) RETURN count(r) AS cnt",
             user_id=user_id,
-            license_plate=license_plate
+            vehicle_id=vehicle_id
         ).single()["cnt"]
         if cnt > 0:
             return jsonify({"message": "Vehicle already assigned to this user"})
 
         other = session.run(
-            "MATCH (other:User)-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) RETURN other.id AS other_id LIMIT 1",
-            license_plate=license_plate
+            "MATCH (other:User)-[r:USES_VEHICLE]->(v:Vehicle {id: $vehicle_id}) RETURN other.id AS other_id LIMIT 1",
+            vehicle_id=vehicle_id
         ).single()
         if other and other.get("other_id") and other.get("other_id") != user_id:
             return jsonify({"error": "Vehicle already assigned to another user"}), 409
         
         res = session.run(
-            "MATCH (u:User {id: $user_id}), (v:Vehicle {license_plate: $license_plate}) CREATE (u)-[:USES_VEHICLE]->(v) RETURN u, v",
+            "MATCH (u:User {id: $user_id}), (v:Vehicle {id: $vehicle_id}) CREATE (u)-[:USES_VEHICLE]->(v) RETURN u, v",
             user_id=user_id,
-            license_plate=license_plate
+            vehicle_id=vehicle_id
         ).single()
         if res:
             u = res["u"]
             v = res["v"]
-            return jsonify({"message": "Vehicle assigned", "user": {"id": u.get("id")}, "vehicle": {"license_plate": v.get("license_plate")}})
+            return jsonify({"message": "Vehicle assigned", "user": {"id": u.get("id")}, "vehicle": {"id": v.get("id")}})
         return jsonify({"error": "Could not assign vehicle"}), 500
 
-@user_bp.route('/<user_id>/unassign_vehicle/<license_plate>', methods=['POST'])
+@user_bp.route('/<user_id>/unassign_vehicle/<vehicle_id>', methods=['POST'])
 @jwt_required()
-def unassign_vehicle(user_id, license_plate):
+def unassign_vehicle(user_id, vehicle_id):
     current_user_id = get_jwt_identity()
     with driver.session() as session:
         user_role = get_user_role(session, current_user_id)
@@ -238,11 +238,11 @@ def unassign_vehicle(user_id, license_plate):
 
     with driver.session() as session:
         res = session.run(
-            "MATCH (u:User {id: $user_id})-[r:USES_VEHICLE]->(v:Vehicle {license_plate: $license_plate}) "
+            "MATCH (u:User {id: $user_id})-[r:USES_VEHICLE]->(v:Vehicle {id: $vehicle_id}) "
             "DELETE r "
             "RETURN count(r) AS deleted_count",
             user_id=user_id,
-            license_plate=license_plate
+            vehicle_id=vehicle_id
         ).single()
         if res and res["deleted_count"] > 0:
             return jsonify({"message": "Vehicle unassigned successfully"})
@@ -271,6 +271,7 @@ def start_shift(user_id):
             user_id=user_id
         )
 
+    redis_client.delete(f"user:{user_id}")
     return jsonify({"message": "Shift started successfully, courier is now available"}), 200
 
 
@@ -296,6 +297,7 @@ def end_shift(user_id):
             user_id=user_id
         )
 
+    redis_client.delete(f"user:{user_id}")
     return jsonify({"message": "Shift ended successfully, courier is now unavailable"}), 200
 
 

@@ -368,6 +368,9 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadDeliveries(); // Inicijalno učitavanje
+            
+            // Periodično učitavanje dostava na svakih 5 sekundi
+            setInterval(loadDeliveries, 5000);
 
             // Povezivanje input/change slušalaca na sve filtere za instant pretragu
             document.getElementById('search-basic').addEventListener('input', applyFilters);

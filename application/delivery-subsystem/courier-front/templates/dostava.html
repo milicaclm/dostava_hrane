@@ -17,26 +17,37 @@
 </head>
 <body>
     <div class="container">
-        <a href="/courier/smena.html"><button>&larr; Nazad na smenu</button></a>
+        <a href="smena.html" style="padding: 10px 15px; margin: 5px; font-size: 16px; cursor: pointer; text-decoration: none; color: black; background: #eee; border: 1px solid #ccc; display: inline-block;">&larr; Nazad na smenu</a>
         <h2>Dostava <span id="delivery-id-badge"></span> - <span id="status-text">Učitavanje...</span></h2>
 
         <div id="toast"></div>
 
         <div id="map"></div>
         <p><i>Napomena: Klikni na mapu da zabeležiš svoju trenutnu lokaciju.</i></p>
+        <div id="test-info-box" style="display: none; margin-top: 15px; padding: 10px; border: 1px solid #000; background: #fff;">
+            <h3>TEST prozor (Dodatni podaci)</h3>
+            <pre id="test-raw-data" style="white-space: pre-wrap; font-family: monospace; font-size: 12px;"></pre>
+        </div>
 
         <div class="info">
             <p><strong>Restoran:</strong> <span id="from-location">—</span></p>
             <p><strong>Kupac:</strong> <span id="to-location">—</span></p>
             <p>Vreme narudžbine: <span id="order-time">—</span></p>
-            <p>Preuzeto: <span id="pickup-time">—</span></p>
-            <p>Isporučeno: <span id="delivery-time">—</span></p>
+            <p id="pickup-time-row"><strong>Preuzeto:</strong> <span id="pickup-time">—</span></p>
+            <p id="delivery-time-row"><strong>Isporučeno:</strong> <span id="delivery-time">—</span></p>
         </div>
 
         <div id="actions-section"></div>
     </div>
 
     <script>
+        const TEST = true;
+        if (TEST) {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('test-info-box').style.display = 'block';
+            });
+        }
+
         const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
         const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
         const API_LOCATIONS_URL = 'http://localhost:8000/api/delivery-subsystem/locations';
@@ -50,6 +61,33 @@
         let currentStatus = null;
         let trackingInterval = null;
         let checkInterval = null;
+        let courierLat = null;
+        let courierLon = null;
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371.0;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function updateTestBox(cLat, cLon, rLat, rLon, vehicleType, productCount) {
+            if (!TEST) return;
+            const rawPre = document.getElementById('test-raw-data');
+            let distText = '—';
+            if (cLat != null && cLon != null && rLat != null && rLon != null) {
+                distText = haversineDistance(cLat, cLon, rLat, rLon).toFixed(3) + ' km';
+            }
+            rawPre.textContent = 
+                `Pozicija dostavljača: Lat = ${cLat != null ? cLat.toFixed(6) : '—'}, Lon = ${cLon != null ? cLon.toFixed(6) : '—'}\n` +
+                `Udaljenost do restorana (Haversine): ${distText}\n` +
+                `Tip vozila: ${vehicleType || '—'}\n` +
+                `Broj artikala: ${productCount || 0}`;
+        }
 
         function getToken() { 
             try {
@@ -78,17 +116,35 @@
         }
 
         function statusLabel(status) {
-            const map = { 'accepted': 'Prihvaćena', 'in transit': 'U dostavi', 'completed': 'Isporučena', 'cancelled': 'Otkazana' };
+            const map = { 'accepted': 'Prihvaćena', 'in transit': 'U dostavi', 'completed': 'Isporučena', 'cancelled': 'Otkazana', 'placed': 'Istekla ponuda' };
             return map[status] || status;
         }
 
         function updateStatusUI(status) {
             currentStatus = status;
-            if (['accepted', 'in transit', 'completed', 'cancelled'].includes(status) && checkInterval) {
+            if (['accepted', 'in transit', 'completed', 'cancelled', 'placed'].includes(status) && checkInterval) {
                 clearInterval(checkInterval);
                 checkInterval = null;
             }
             document.getElementById('status-text').textContent = statusLabel(status);
+            
+            // Hide pickup and delivery times for unaccepted/pending deliveries
+            const isUnaccepted = ['offered', 'pending', 'placed'].includes(status);
+            document.getElementById('pickup-time-row').style.display = isUnaccepted ? 'none' : 'block';
+            document.getElementById('delivery-time-row').style.display = isUnaccepted ? 'none' : 'block';
+
+            // Clear values on cancellation
+            if (status === 'cancelled') {
+                document.getElementById('pickup-time').textContent = '—';
+                document.getElementById('delivery-time').textContent = '—';
+            }
+
+            if (['completed', 'cancelled', 'placed'].includes(status)) {
+                setTimeout(() => {
+                    window.location.href = 'smena.html';
+                }, 2000);
+            }
+
             renderActions(status);
         }
 
@@ -137,6 +193,41 @@
             } catch (e) { showToast('Mrežna greška'); }
         }
 
+        async function loadOtherDeliveriesOnMap() {
+            if (!TEST) return;
+            const token = getToken();
+            const currentId = getDeliveryIdFromUrl();
+            try {
+                const res = await fetch(API_DELIVERIES_URL, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const deliveries = await res.json();
+                    const redIcon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    });
+
+                    deliveries.forEach(d => {
+                        if (d.id === currentId) return;
+                        const lat = parseFloat(d.restaurant_lat);
+                        const lon = parseFloat(d.restaurant_lon);
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            L.marker([lat, lon], { icon: redIcon })
+                             .bindPopup(`Druga dostava: #${d.id}<br>Status: ${d.status}<br>Od: ${d.from_location}`)
+                             .addTo(map);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn(e);
+            }
+        }
+
         function initMap(restaurantLat, restaurantLon, customerLat, customerLon) {
             let centerLat = restaurantLat || customerLat || 45.25;
             let centerLon = restaurantLon || customerLon || 19.83;
@@ -149,19 +240,33 @@
 
             if (restaurantLat && restaurantLon) { pickupMarker = L.marker([restaurantLat, restaurantLon]).bindPopup('Restoran').addTo(map); }
             if (customerLat && customerLon) { deliveryMarker = L.marker([customerLat, customerLon]).bindPopup('Kupac').addTo(map); }
-            if (restaurantLat && customerLat) {
+            if (restaurantLat && restaurantLon && customerLat && customerLon) {
                 routeLine = L.polyline([[restaurantLat, restaurantLon], [customerLat, customerLon]], { color: 'blue' }).addTo(map);
-                map.fitBounds(routeLine.getBounds());
             }
 
-            map.on('click', function (e) { placeCourierMarker(e.latlng.lat, e.latlng.lng, true); });
+            loadOtherDeliveriesOnMap();
+
+            map.on('click', (e) => { placeCourierMarker(e.latlng.lat, e.latlng.lng, true); });
         }
 
         function placeCourierMarker(lat, lon, fromClick = false) {
             if (courierMarker) { courierMarker.setLatLng([lat, lon]); } 
             else { courierMarker = L.marker([lat, lon]).bindPopup('Ti si ovde').addTo(map); }
-            if (fromClick) showToast('Lokacija zabeležena');
-            saveLocationToServer(lat, lon);
+            
+            courierLat = lat;
+            courierLon = lon;
+
+            if (TEST && currentDelivery) {
+                updateTestBox(
+                    courierLat, courierLon,
+                    currentDelivery.restaurant_lat ? parseFloat(currentDelivery.restaurant_lat) : null,
+                    currentDelivery.restaurant_lon ? parseFloat(currentDelivery.restaurant_lon) : null,
+                    currentDelivery.vehicle_type,
+                    currentDelivery.product_count
+                );
+            }
+
+            if (fromClick) { saveLocationToServer(lat, lon); }
         }
 
         async function saveLocationToServer(lat, lon) {
@@ -190,7 +295,7 @@
                     if (!pos || pos.lat == null || pos.lon == null) return;
                     placeCourierMarker(parseFloat(pos.lat), parseFloat(pos.lon), false);
                 } catch (e) { console.warn(e); }
-            }, 4000);
+            }, 1000);
         }
 
         async function doPickup() {
@@ -251,6 +356,16 @@
                 const d = await res.json();
                 currentDelivery = d;
                 
+                if (TEST) {
+                    updateTestBox(
+                        courierLat, courierLon,
+                        d.restaurant_lat ? parseFloat(d.restaurant_lat) : null,
+                        d.restaurant_lon ? parseFloat(d.restaurant_lon) : null,
+                        d.vehicle_type,
+                        d.product_count
+                    );
+                }
+                
                 document.getElementById('from-location').textContent = d.from_location || '—';
                 document.getElementById('to-location').textContent = d.to_location || '—';
                 document.getElementById('order-time').textContent = formatDateTime(d.order_time);
@@ -260,19 +375,24 @@
                 const status = d.status || 'accepted';
                 updateStatusUI(status);
 
-                if (['offered', 'pending', 'placed'].includes(status)) {
+                if (['offered', 'pending', 'placed', 'accepted', 'in transit'].includes(status)) {
                     checkInterval = setInterval(async () => {
                         try {
-                            const offersRes = await fetch(`${API_DELIVERIES_URL}/offers`, { headers: { 'Authorization': `Bearer ${token}` } });
-                            if (offersRes.ok) {
-                                const offers = await offersRes.json();
-                                if (!offers.some(o => o.id === deliveryId)) {
-                                    clearInterval(checkInterval);
-                                    showToast('Ponuda istekla');
+                            const detailRes = await fetch(`${API_DELIVERIES_URL}/${deliveryId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                            if (detailRes.ok) {
+                                const freshD = await detailRes.json();
+                                if (freshD.status !== currentStatus) {
+                                    updateStatusUI(freshD.status);
+                                    document.getElementById('pickup-time').textContent = formatDateTime(freshD.pickup_time);
+                                    document.getElementById('delivery-time').textContent = formatDateTime(freshD.delivery_time);
                                 }
+                            } else if (detailRes.status === 404) {
+                                clearInterval(checkInterval);
+                                showToast('Dostava nije pronađena');
+                                setTimeout(() => window.location.href = 'smena.html', 2000);
                             }
                         } catch (err) {}
-                    }, 3000);
+                    }, 1000);
                 }
 
                 initMap(parseFloat(d.restaurant_lat), parseFloat(d.restaurant_lon), parseFloat(d.customer_lat), parseFloat(d.customer_lon));

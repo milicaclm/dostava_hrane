@@ -36,12 +36,18 @@ def get_vehicles():
         if owner_id_filter:
             query_base = """
             MATCH (v:Vehicle)
-            WHERE (v.owner_id = $owner_id OR v.owner_id IS NULL)
-            WITH v
-            OPTIONAL MATCH (u:User {id: $owner_id})
-            WHERE u.account_type IN ['courier', 'delivery']
-            WITH v, u
-            WHERE u IS NULL OR v.is_ready = true
+            WHERE (
+                (v.owner_id = $owner_id AND COALESCE(v.is_ready, true) = true)
+                OR
+                (
+                    v.owner_id IS NULL 
+                    AND COALESCE(v.is_ready, true) = true
+                    AND (
+                        NOT EXISTS { ()-[:USES_VEHICLE]->(v) }
+                        OR EXISTS { (:User {id: $owner_id})-[:USES_VEHICLE]->(v) }
+                    )
+                )
+            )
             """
             params['owner_id'] = owner_id_filter
         
@@ -166,8 +172,8 @@ def update_vehicle(vehicle_id):
     data = request.get_json()
     
     # Validacija
-    if not data.get("type") or not data.get("license_plate"):
-        return jsonify({"error": "Type and License Plate are required"}), 400
+    if not data.get("type"):
+        return jsonify({"error": "Type is required"}), 400
 
     with driver.session() as session:
         user_role = get_user_role(session, current_user_id)
@@ -201,7 +207,7 @@ def update_vehicle(vehicle_id):
             RETURN v, is_in_use
             """,
             vehicle_id=vehicle_id,
-            license_plate=data.get("license_plate"),
+            license_plate=data.get("license_plate", ""),
             type=data["type"].lower(),
             is_ready=data.get("is_ready", True),
             brand=data.get("brand"),
@@ -303,8 +309,8 @@ def create_vehicle():
     data = request.get_json()
 
     # Validacija
-    if not data.get("type") or not data.get("license_plate"):
-        return jsonify({"error": "Type and License Plate are required"}), 400
+    if not data.get("type"):
+        return jsonify({"error": "Type is required"}), 400
     
     vehicle_id = f"v-{uuid.uuid4().hex[:8]}"
     
@@ -333,7 +339,7 @@ def create_vehicle():
             id=vehicle_id,
             owner_id=final_owner_id,
             type=data["type"].lower(),
-            license_plate=data["license_plate"],
+            license_plate=data.get("license_plate", ""),
             is_ready=data.get("is_ready", True),
             brand=data.get("brand"),
             model=data.get("model"),

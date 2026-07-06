@@ -22,6 +22,10 @@
         <iframe src="smena.html" name="content-frame"></iframe>
     </div>
     <script>
+        if (!localStorage.getItem('jwt_token')) {
+            window.location.href = '/';
+        }
+
         function logout() {
             localStorage.removeItem('jwt_token');
             window.location.href = '/';

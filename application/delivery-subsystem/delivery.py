@@ -33,14 +33,11 @@ def _fmt_dt(v):
         return None
 
 
-@delivery_bp.route('/')
+@delivery_bp.route('', methods=['GET'])
 @jwt_required()
 def get_deliveries():
     current_user_id = get_jwt_identity()
     with driver.session() as session:
-        user_role = get_user_role(session, current_user_id)
-        if user_role != 'manager':
-            return jsonify({"error": "Forbidden: Only managers can view the full list of deliveries"}), 403
 
         result = session.run(
             "MATCH (d:Delivery) "
@@ -123,8 +120,21 @@ def get_delivery(delivery_id):
             user_node = record["u"]
             status = record["status"] or "placed"
             courier_info = None
+            vehicle_type = "bicycle"
             if user_node:
                 courier_info = f"{user_node['id']} - {user_node.get('name', '')} {user_node.get('surname', '')}".strip()
+                veh_res = session.run(
+                    "MATCH (u:User {id: $user_id})-[:USES_VEHICLE]->(v:Vehicle) RETURN v.type AS type LIMIT 1",
+                    user_id=user_node["id"]
+                ).single()
+                if veh_res:
+                    vehicle_type = veh_res["type"]
+
+            prod_res = session.run(
+                "MATCH (d:Delivery {id: $delivery_id})-[r:CONTAINS_PRODUCT]->(:Product) RETURN sum(coalesce(r.quantity, 1)) AS cnt",
+                delivery_id=delivery_id
+            ).single()
+            product_count = prod_res["cnt"] if prod_res else 0
                 
             delivery = {
                 "id": delivery_node["id"],
@@ -140,7 +150,9 @@ def get_delivery(delivery_id):
                 "restaurant_lon": delivery_node.get("restaurant_lon"),
                 "customer_lat": delivery_node.get("customer_lat"),
                 "customer_lon": delivery_node.get("customer_lon"),
-                "courier": courier_info
+                "courier": courier_info,
+                "vehicle_type": vehicle_type,
+                "product_count": product_count
             }
             return jsonify(delivery)
         else:
@@ -628,21 +640,20 @@ def accept_offer(delivery_id):
             _pending_offers.pop(user_id, None)
             return jsonify({'error': 'Delivery not found'}), 404
 
-        # Check delivery is not already accepted/in-transit by someone else
-        already_active = session.run(
-            "MATCH (u:User)-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
-            "WHERE r.status IN ['accepted', 'in transit'] "
-            "RETURN u.id AS uid LIMIT 1",
+        # Validate that the courier is currently connected to the delivery via a 'pending' relationship
+        pending_offer = session.run(
+            "MATCH (u:User {id: $user_id})-[r:OFFERED {status: 'pending'}]->(d:Delivery {id: $delivery_id}) "
+            "RETURN r LIMIT 1",
+            user_id=user_id,
             delivery_id=delivery_id
         ).single()
-        if already_active and already_active['uid'] != user_id:
+        if not pending_offer:
             _pending_offers.pop(user_id, None)
-            return jsonify({'error': 'Delivery was already accepted by another courier'}), 409
+            return jsonify({'error': 'No pending offer found in the database for this courier and delivery'}), 404
 
-        # Create OFFERED relation in DB with status='accepted' (first time it touches DB)
+        # Update the relationship status to 'accepted'
         session.run(
-            "MATCH (u:User {id: $user_id}), (d:Delivery {id: $delivery_id}) "
-            "MERGE (u)-[r:OFFERED]->(d) "
+            "MATCH (u:User {id: $user_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "SET r.status = 'accepted', r.ts = datetime()",
             user_id=user_id,
             delivery_id=delivery_id
@@ -688,11 +699,25 @@ def accept_offer(delivery_id):
 
 @delivery_bp.route('/<delivery_id>/reject', methods=['POST'])
 def reject_offer(delivery_id):
-    """Courier rejects an in-memory offer. No DB write needed – just remove from memory."""
+    """Courier rejects offer. Remove from memory and delete pending relation from DB."""
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
     if not courier_id:
         return jsonify({'error': 'courier_id required'}), 400
+
+    with driver.session() as session:
+        session.run(
+            "MATCH (u:User {id: $user_id})-[r:OFFERED {status: 'pending'}]->(d:Delivery {id: $delivery_id}) "
+            "DELETE r",
+            user_id=courier_id,
+            delivery_id=delivery_id
+        )
+    try:
+        redis_client.sadd(f"rejected:{courier_id}", delivery_id)
+        redis_client.expire(f"rejected:{courier_id}", 600)
+    except Exception as e:
+        print(f"Error saving rejection to Redis: {e}")
+
     offer = _pending_offers.get(courier_id)
     if offer and offer['delivery_id'] == delivery_id:
         _pending_offers.pop(courier_id, None)
@@ -797,10 +822,11 @@ def courier_cancel(delivery_id):
         if not assigned:
             return jsonify({'error': 'Not assigned to this courier'}), 403
             
-        # Set status to cancelled
+        # Set status to cancelled and clear timestamps
         session.run(
             "MATCH (u:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
-            "SET r.status = 'cancelled'", 
+            "SET r.status = 'cancelled' "
+            "REMOVE d.pickup_time, d.delivery_time", 
             courier_id=courier_id,
             delivery_id=delivery_id
         )
@@ -823,8 +849,8 @@ def get_parameters():
     try:
         # Default values if not set
         defaults = {
-            "weight_distance_to_restaurant": "2.0",
-            "weight_distance_route": "1.0",
+            "weight_distance_to_restaurant": "0.5",
+            "weight_distance_route": "0.5",
             "capacity_bicycle": "3",
             "capacity_scooter": "6",
             "capacity_car": "15"
@@ -870,8 +896,8 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 
 def get_dynamic_params():
     defaults = {
-        "weight_distance_to_restaurant": "8",
-        "weight_distance_route": "1.0",
+        "weight_distance_to_restaurant": "0.5",
+        "weight_distance_route": "0.5",
         "capacity_bicycle": "3",
         "capacity_scooter": "6",
         "capacity_car": "15"
@@ -890,25 +916,54 @@ def calculate_courier_score(
     product_count: int,
     params: dict
 ) -> float:
-    cap_key = f"capacity_{vehicle_type}"
+    # Normalize vehicle type
+    v_type = vehicle_type
+    if v_type in ['bike', 'motorcycle']:
+        v_type = 'scooter'
+
+    cap_key = f"capacity_{v_type}"
     capacity = params.get(cap_key, params.get("capacity_bicycle"))
-    capacity_penalty = max(0, product_count - capacity) * 10.0
-    score = (courier_restaurant_dist * params["weight_distance_to_restaurant"]) + (restaurant_customer_dist * params["weight_distance_route"]) + capacity_penalty
+
+    # Hard constraint: order cannot exceed the car's capacity (global upper limit)
+    max_cap = params.get("capacity_car", 15.0)
+    if product_count > max_cap:
+        return 1e9
+
+    # Hard constraint: order cannot exceed this courier's vehicle capacity
+    if product_count > capacity:
+        return 1e9
+
+    # Adjusted distance based on speed factors (car > scooter > bicycle)
+    speed_factors = {
+        "car": 3.0,
+        "scooter": 2.0,
+        "bicycle": 1.0
+    }
+    speed_factor = speed_factors.get(v_type, 1.0)
+    adjusted_dist = courier_restaurant_dist / speed_factor
+
+    score = (adjusted_dist * params["weight_distance_to_restaurant"]) + (restaurant_customer_dist * params["weight_distance_route"])
     return score
 
 def assign_deliveries_job():
     global _pending_offers
     import time
     now_time = time.time()
-    expired_couriers = [cid for cid, offer in _pending_offers.items() if now_time - offer['offered_at'] >= 15.0]
-    for cid in expired_couriers:
-        print(f"[Scheduler] Expiring pending offer for courier {cid} (delivery {_pending_offers[cid]['delivery_id']}) due to timeout", flush=True)
-        _pending_offers.pop(cid, None)
-
     params = get_dynamic_params()
 
-
     with driver.session() as session:
+        expired_couriers = [cid for cid, offer in _pending_offers.items() if now_time - offer['offered_at'] >= 15.0]
+        for cid in expired_couriers:
+            del_id = _pending_offers[cid]['delivery_id']
+            print(f"[Scheduler] Expiring pending offer for courier {cid} (delivery {del_id}) due to timeout", flush=True)
+            session.run(
+                "MATCH (u:User {id: $user_id})-[r:OFFERED {status: 'pending'}]->(d:Delivery {id: $delivery_id}) "
+                "DELETE r",
+                user_id=cid,
+                delivery_id=del_id
+            )
+            _pending_offers.pop(cid, None)
+
         currently_offered_delivery_ids = {v['delivery_id'] for v in _pending_offers.values()}
 
         eligible_res = session.run(
@@ -917,7 +972,7 @@ def assign_deliveries_job():
             "    MATCH (u:User)-[r:OFFERED]->(d) "
             "    WHERE r.status IN ['accepted', 'in transit', 'completed'] "
             "} "
-            "OPTIONAL MATCH (u2:User)-[rc:OFFERED]->(d) WHERE rc.status = 'cancelled' "
+            "OPTIONAL MATCH (u2:User)-[rc:OFFERED]->(d) WHERE rc.status IN ['cancelled', 'rejected'] "
             "RETURN d, count(rc) AS cancelled_count "
             "ORDER BY cancelled_count DESC"
         )
@@ -972,6 +1027,24 @@ def assign_deliveries_job():
         if not couriers:
             return
 
+        ignored_pairs = set()
+        for courier in couriers:
+            try:
+                rejected_ids = redis_client.smembers(f"rejected:{courier['id']}")
+                for rid in rejected_ids:
+                    ignored_pairs.add((courier['id'], rid))
+            except Exception as e:
+                print(f"Error reading rejections from Redis: {e}")
+
+        # Also get cancelled from Neo4j if any still exist
+        cancelled_res = session.run(
+            "MATCH (u:User)-[r:OFFERED]->(d:Delivery) "
+            "WHERE r.status = 'cancelled' "
+            "RETURN u.id AS user_id, d.id AS delivery_id"
+        )
+        for record in cancelled_res:
+            ignored_pairs.add((record["user_id"], record["delivery_id"]))
+
         cost_matrix = np.zeros((len(deliveries), len(couriers)))
         for i, delivery_entry in enumerate(deliveries):
             d = delivery_entry["node"]
@@ -979,7 +1052,7 @@ def assign_deliveries_job():
 
             prod_count_res = session.run(
                 "MATCH (d:Delivery {id: $delivery_id})-[r:CONTAINS_PRODUCT]->(:Product) "
-                "RETURN count(r) AS cnt",
+                "RETURN sum(coalesce(r.quantity, 1)) AS cnt",
                 delivery_id=delivery_id
             ).single()
             product_count = prod_count_res["cnt"] if prod_count_res else 0
@@ -990,9 +1063,18 @@ def assign_deliveries_job():
             customer_lon = d.get("customer_lon")
 
             for j, courier in enumerate(couriers):
+                if (courier["id"], delivery_id) in ignored_pairs:
+                    cost_matrix[i, j] = 1e9
+                    continue
+
                 courier_restaurant_distance = 0.0
                 restaurant_customer_distance = 0.0
-                if restaurant_lat is not None and restaurant_lon is not None and courier["lat"] is not None and courier["lon"] is not None:
+                
+                # Check if courier has a valid location
+                if courier["lat"] is None or courier["lon"] is None or (courier["lat"] == 0.0 and courier["lon"] == 0.0):
+                    # Penalty for no location
+                    courier_restaurant_distance = 1000.0 # 1000 km penalty
+                elif restaurant_lat is not None and restaurant_lon is not None:
                     courier_restaurant_distance = haversine_distance(
                         courier["lat"], courier["lon"],
                         restaurant_lat, restaurant_lon
@@ -1016,6 +1098,10 @@ def assign_deliveries_job():
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
         for i, j in zip(row_ind, col_ind):
             best_score = cost_matrix[i, j]
+            if best_score >= 1e9:
+                print(f"[Scheduler] Skipping assignment of delivery {deliveries[i]['node']['id']} because matched courier has insufficient capacity (score={best_score:.2f})")
+                continue
+
             best_courier = couriers[j]
             delivery_id = deliveries[i]["node"]["id"]
 
@@ -1024,6 +1110,13 @@ def assign_deliveries_job():
                 "score": best_score,
                 "offered_at": time.time()
             }
+            session.run(
+                "MATCH (u:User {id: $user_id}), (d:Delivery {id: $delivery_id}) "
+                "MERGE (u)-[r:OFFERED]->(d) "
+                "SET r.status = 'pending', r.ts = datetime()",
+                user_id=best_courier["id"],
+                delivery_id=delivery_id
+            )
             print(f"[Scheduler] In-memory offer: delivery {delivery_id} -> courier {best_courier['id']} (score={best_score:.2f})")
 
 def run_scheduler():
