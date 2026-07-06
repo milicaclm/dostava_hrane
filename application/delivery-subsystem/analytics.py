@@ -11,11 +11,6 @@ def health():
 
 @analytics_bp.route('/accepted-per-vehicle', methods=['GET'])
 def prihvacene_po_vozilu():
-    """
-    1. Ukupan broj zapisa sa statusom 'accepted' po vehicle_id.
-    Filtriranje po merenju i polju, grupisanje po vehicle_id,
-    agregacija count() i sortiranje od najvećeg ka najmanjem.
-    """
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
@@ -44,10 +39,6 @@ def prihvacene_po_vozilu():
 
 @analytics_bp.route('/movement-range', methods=['GET'])
 def opseg_kretanja():
-    """
-    2. Opseg kretanja (spread) latitude i longitude po korisniku (user_id).
-    Koristi spread() i pivot() da prikaze obe koordinate u jednoj tabeli po korisniku.
-    """
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
@@ -75,12 +66,7 @@ def opseg_kretanja():
 
 @analytics_bp.route('/delivery-efficiency', methods=['GET'])
 def efikasnost_dostave():
-    """
-    3. Efikasnost po dostavi (delivery_id) i statusu.
-    Pivotira delivery_status i lat po vremenu, koristi elapsed() za trajanje,
-    map() za apsolutne vrednosti, filtrira lat <= 0 i računa efficiency = duration / lat.
-    Grupise po delivery_id i delivery_status i izracunava mean(efikasnosti).
-    """
+
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
@@ -121,11 +107,7 @@ def efikasnost_dostave():
 
 @analytics_bp.route('/worker-reliability', methods=['GET'])
 def pouzdanost_radnika():
-    """
-    4. Analiza pouzdanosti radnika.
-    Broji jedinstvene prihvaćene i otkazane dostave po radniku (user_id).
-    Zatim izračunava njihov odnos (cancelled / accepted).
-    """
+
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
@@ -170,11 +152,7 @@ def pouzdanost_radnika():
 
 @analytics_bp.route('/hourly-accepted', methods=['GET'])
 def dostave_po_satima():
-    """
-    5. Raspodela prihvaćenih dostava po satu u prosečnom danu.
-    Za svaki sat u danu (0-23) računa prosečan broj dostava
-    uzimajući u obzir sve dostupne dane u datasetu.
-    """
+
     query = f'''
         import "date"
 
@@ -225,7 +203,7 @@ def generisi_izvestaj_pdf():
 
         pdf_buf = io.BytesIO()
         with PdfPages(pdf_buf) as pdf:
-            # --- Grafikon 1: Prihvaćene dostave po vozilu ---
+            
             if veh_data:
                 fig, ax = plt.subplots(figsize=(8, 6))
                 vehicles = [str(x.get("vehicle_id") or "Unknown") for x in veh_data]
@@ -239,7 +217,7 @@ def generisi_izvestaj_pdf():
                 pdf.savefig(fig)
                 plt.close(fig)
 
-            # --- Grafikon 2: Opseg kretanja po korisniku ---
+            
             if range_data:
                 fig, ax = plt.subplots(figsize=(8, 6))
                 users = [str(x.get("user_id") or "Unknown") for x in range_data]
@@ -260,7 +238,7 @@ def generisi_izvestaj_pdf():
                 pdf.savefig(fig)
                 plt.close(fig)
 
-            # --- Grafikon 3: Efikasnost dostave ---
+            
             if eff_data:
                 fig, ax = plt.subplots(figsize=(8, 6))
                 status_eff = {}
@@ -279,7 +257,7 @@ def generisi_izvestaj_pdf():
                 pdf.savefig(fig)
                 plt.close(fig)
 
-            # --- Grafikon 4: Pouzdanost radnika ---
+
             if worker_data:
                 fig, ax = plt.subplots(figsize=(8, 6))
                 users = [str(x.get("user_id") or "Unknown") for x in worker_data]
@@ -293,7 +271,7 @@ def generisi_izvestaj_pdf():
                 pdf.savefig(fig)
                 plt.close(fig)
 
-            # --- Grafikon 5: Raspodela prihvaćenih dostava po satima ---
+
             if hourly_data:
                 fig, ax = plt.subplots(figsize=(8, 6))
                 hours = [x.get("hour_of_day") for x in hourly_data]
