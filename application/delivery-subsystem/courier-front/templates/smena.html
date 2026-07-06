@@ -133,7 +133,7 @@
             const userId = getUserId();
             if (!userId) return;
             try {
-                await fetch(`${API_USERS_URL}/${userId}/location`, {
+                await fetch(`${API_LOCATIONS_URL}/set_position?user_id=${userId}`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${getToken()}`,

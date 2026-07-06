@@ -129,23 +129,19 @@ def delete_position_points():
 @location_bp.route("/set_position", methods=["POST"])
 def set_position():
     """korisnik zadaje noviju vrednost kada zeli"""
-    data = request.get_json()
-    # delivery_id is required for position updates
-    if data is None or data.get("delivery_id") is None:
-        return jsonify({"status": "error", "message": "delivery_id is required"}), 400
+    data = request.get_json() or {}
     with lock:
         try:
             uid = request.args.get('user_id')
-            # update lat/lon and optionally delivery_id here
             mapping = {
                 "lat": data.get("lat", 0.0),
                 "lon": data.get("lon", 0.0),
                 "last_seen": datetime.utcnow().isoformat() + "Z"
             }
-            # delivery_id present (enforced above) — add to mapping
             mapping["user_id"] = uid
-            mapping["delivery_id"] = data.get("delivery_id")
-            if data.get("vehicle_id"):
+            if data.get("delivery_id") is not None:
+                mapping["delivery_id"] = data.get("delivery_id")
+            if data.get("vehicle_id") is not None:
                 mapping["vehicle_id"] = data.get("vehicle_id")
             redis_client.hset(f"pos:{uid}", mapping=mapping)
         except Exception as e:
