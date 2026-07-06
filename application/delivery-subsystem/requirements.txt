@@ -7,3 +7,4 @@ Flask-JWT-Extended
 PyJWT
 gunicorn==21.2.0
 scipy
+matplotlib

@@ -45,7 +45,10 @@
             <input type="text" class="search-box" id="search-basic" placeholder="Pretraži dostavljače...">
             <button class="btn-advanced" onclick="toggleAdvancedSearch()">Napredna pretraga</button>
         </div>
-        <button class="btn-add" onclick="openAddModal()">+ Dodaj dostavljača</button>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="generisiIzvestaj()" style="background: #e0f2fe; color: #0369a1; font-weight: bold; border-color: #7dd3fc;">Izgeneriši izveštaj</button>
+            <button class="btn-add" onclick="openAddModal()">+ Dodaj dostavljača</button>
+        </div>
     </div>
 
     <!-- Napredna pretraga panel -->
@@ -167,6 +170,10 @@
 
     <script>
         const API_BASE_COURIERS = 'http://localhost:8000/api/delivery-subsystem/resources/couriers';
+
+        function generisiIzvestaj() {
+            window.location.href = 'http://localhost:8000/api/delivery-subsystem/analytics/report.pdf';
+        }
 
         let isEditMode = false;
         let allCouriers = [];
