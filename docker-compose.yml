@@ -108,7 +108,6 @@ services:
     ports:
       - "8000:8080"
     environment:
-      # VRAĆENE KLJUČNE VARIJABLE
       - FLASK_APP=app.py
       - FLASK_DEBUG=1
       - AUTH_SERVICE_URL=http://auth-service:8080

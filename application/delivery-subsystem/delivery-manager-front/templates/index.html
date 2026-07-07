@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Početna stranica</title>
-    <!-- Povezivanje CSS fajla -->
-    <!-- <link rel="stylesheet" href="style.css"> -->
+    
+    
     <style>
         body { margin: 0; padding: 0; display: flex; min-height: 100vh; font-family: sans-serif; }
         .sidebar { flex: 1; background-color: #eee; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid #ccc; }
@@ -31,9 +31,9 @@
 </head>
 
 <body>
-    <!-- Levi div za navigaciju (razmera 1) -->
+    
     <div class="sidebar">
-        <!-- Ovde će se kasnije pozivati navigacija -->
+        
         <nav>
             <ul>
                 <li><a href="dostavljaci.html" target="content-frame">Dostavljači</a></li>
@@ -43,7 +43,7 @@
             </ul>
         </nav>
 
-        <!-- Deo za korisnički profil na dnu -->
+        
         <div class="user-profile-wrapper">
             <div class="user-profile">
                 <div class="user-profile-details">
@@ -61,9 +61,9 @@
         </div>
     </div>
 
-    <!-- Desni div gde se nalazi stranica (razmera 5) -->
+    
     <div class="main-content">
-        <!-- Iframe po defaultu uvozi dostavljaci.html -->
+        
         <iframe src="dostavljaci.html" name="content-frame" title="Glavni sadržaj"></iframe>
     </div>
 

@@ -11,7 +11,6 @@ def proxy_request(base_url, path):
     url = f"{base_url}/{path}"
     print(f"--- Proxying request to: {url} ---")
     
-    # Prosleđivanje metode, zaglavlja i tela zahteva
     try:
         resp = requests.request(
             method=request.method,
@@ -59,16 +58,10 @@ def proxy_delivery_api(path):
 
 @app.route('/static/<path:path>')
 def proxy_static(path):
-    # Pokušavamo prvo auth-service static, pa delivery-subsystem static
-    # U realnom sistemu, statički fajlovi bi obično bili servirani direktno sa diska ili preko namenskog servisa
-    # Ovde ćemo probati auth-service jer je on prvi u redu
     return proxy_request(AUTH_SERVICE_URL, f"static/{path}")
 
 @app.route('/favicon.ico')
 def favicon():
-    # Pokušavamo da nađemo favicon u bilo kom od servisa ako postoji, 
-    # ili vraćamo 204 da izbegnemo 404 grešku u browseru.
-    # Neki browseri ignorišu 204 za favicon i stalno ga traže.
     return Response(status=204, mimetype='image/x-icon')
 
 if __name__ == "__main__":

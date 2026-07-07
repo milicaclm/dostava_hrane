@@ -11,7 +11,6 @@ from db import driver, redis_client, influx_client
 
 app = Flask(__name__)
 
-# JWT Konfiguracija
 app.config['JWT_SECRET_KEY'] = 'dev-secret-key'
 jwt = JWTManager(app)
 
@@ -19,7 +18,6 @@ jwt = JWTManager(app)
 def hello():
     return jsonify({"status": "Delivery Subsystem is running"}), 200
 
-# --- Rutiranje Frontend Aplikacija ---
 
 @app.route('/manager/')
 def serve_manager_index():
@@ -41,7 +39,6 @@ def serve_courier_files(path):
         return send_from_directory('courier-front', path)
     return send_from_directory('courier-front/templates', path)
 
-# --- Registracija API Blueprints ---
 
 app.register_blueprint(delivery_bp, url_prefix='/deliveries')
 app.register_blueprint(location_bp, url_prefix='/locations')

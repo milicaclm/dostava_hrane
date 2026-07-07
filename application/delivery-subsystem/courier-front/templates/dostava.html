@@ -128,12 +128,12 @@
             }
             document.getElementById('status-text').textContent = statusLabel(status);
             
-            // Hide pickup and delivery times for unaccepted/pending deliveries
+            
             const isUnaccepted = ['offered', 'pending', 'placed'].includes(status);
             document.getElementById('pickup-time-row').style.display = isUnaccepted ? 'none' : 'block';
             document.getElementById('delivery-time-row').style.display = isUnaccepted ? 'none' : 'block';
 
-            // Clear values on cancellation
+            
             if (status === 'cancelled') {
                 document.getElementById('pickup-time').textContent = '—';
                 document.getElementById('delivery-time').textContent = '—';

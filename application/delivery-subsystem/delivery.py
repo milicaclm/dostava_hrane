@@ -1,4 +1,3 @@
-#servis za dostave
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import os
@@ -12,8 +11,6 @@ from scipy.optimize import linear_sum_assignment
 from db import driver, redis_client
 delivery_bp = Blueprint('delivery', __name__)
 
-# In-memory store: { courier_id: {delivery_id, score, offered_at} }
-# Represents the current batch of pending offers (not yet accepted/rejected)
 _pending_offers: dict = {}
 
 def get_user_role(session, user_id):
@@ -23,7 +20,6 @@ def get_user_role(session, user_id):
 
 INTERNAL_API_URL = os.environ.get("INTERNAL_API_URL", "http://localhost:8080")
 
-# helper to stringify Neo4j DateTime objects for JSON
 def _fmt_dt(v):
     if v is None:
         return None
@@ -158,7 +154,6 @@ def get_delivery(delivery_id):
         else:
             return jsonify({"error": "Delivery not found"}), 404
 
-# -----------------------Pravljenje porudžbine-----------------------------------------
 @delivery_bp.route('/', methods=['POST'])
 def create_delivery():
     data = request.get_json()
@@ -208,7 +203,6 @@ def update_delivery(delivery_id):
         if record:
             delivery_node = record["d"]
             
-            # Dobavljanje statusa iz aktivne OFFERED veze
             status_res = session.run(
                 "MATCH (d:Delivery {id: $delivery_id}) "
                 "OPTIONAL MATCH (u:User)-[r:OFFERED]->(d) "
@@ -321,13 +315,10 @@ def get_delivery_products(delivery_id):
 @delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['POST'])
 def create_placed_order(delivery_id, customer_id):
     with driver.session() as session:
-        # verify delivery
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
             return jsonify({"error": "Delivery not found"}), 404
-        # verify customer
         if not session.run("MATCH (c:User {id: $customer_id}) WHERE c.account_type = 'customer' RETURN c", customer_id=customer_id).single():
             return jsonify({"error": "Customer not found"}), 404
-        # idempotent create
         res = session.run(
             "MATCH (c:User {id: $customer_id}), (d:Delivery {id: $delivery_id}) MERGE (c)-[r:PLACED_ORDER]->(d) RETURN count(r) AS cnt",
             customer_id=customer_id,
@@ -375,7 +366,6 @@ def update_placed_order(delivery_id, customer_id):
             return jsonify({"message": "Placed order relation updated"})
         return jsonify({"error": "Placed order relation not found"}), 404
 
-#------------------------------------------------------------------------------------------
 
 @delivery_bp.route('/<delivery_id>/assign_courier/<courier_id>', methods=['POST'])
 def assign_courier(delivery_id, courier_id):
@@ -515,18 +505,15 @@ def complete_delivery(delivery_id):
     courier_id = data.get('courier_id')
 
     with driver.session() as session:
-        # verify delivery
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
             return jsonify({"error": "Delivery not found"}), 404
 
-        # set relation status to completed
         session.run(
             "MATCH (u:User)-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "WHERE r.status IN ['pending', 'accepted', 'in transit'] "
             "SET r.status = 'completed', d.delivery_time = datetime()",
             delivery_id=delivery_id
         )
-        # if courier is present, update Redis and stop tracking
         if courier_id:
             try:
                 redis_client.hset(f"pos:{courier_id}", mapping={"delivery_status": "completed"})
@@ -534,7 +521,6 @@ def complete_delivery(delivery_id):
                 import traceback
                 traceback.print_exc()
             try:
-                # Sada je putanja /locations/stop jer je location_bp registrovan na /locations
                 requests.post(f"{INTERNAL_API_URL}/locations/stop", json={"user_id": courier_id}, timeout=2)
             except Exception:
                 import traceback
@@ -542,14 +528,12 @@ def complete_delivery(delivery_id):
 
     return jsonify({"status": "completed", "delivery_id": delivery_id}), 200
 
-# --- Offer / suggestion workflow ---
 @delivery_bp.route('/<delivery_id>/propose_couriers', methods=['GET'])
 def propose_couriers(delivery_id):
     """Return candidate couriers for a delivery (simple heuristic).
     Currently returns couriers with account_type 'courier' who are active and not currently assigned.
     """
     with driver.session() as session:
-        # ensure delivery exists
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
             return jsonify({"error": "Delivery not found"}), 404
 
@@ -585,7 +569,6 @@ def get_offered_deliveries():
             delivery_id=delivery_id
         ).single()
         if not result:
-            # Delivery no longer exists – clean up stale offer
             _pending_offers.pop(courier_id, None)
             return jsonify([]), 200
         d = result["d"]
@@ -611,7 +594,6 @@ def offer_delivery_to_courier(delivery_id, courier_id):
         if not session.run("MATCH (u:User {id: $courier_id}) RETURN u", courier_id=courier_id).single():
             return jsonify({"error": "Courier not found"}), 404
 
-        # idempotent offer
         session.run(
             "MATCH (u:User {id: $courier_id}), (d:Delivery {id: $delivery_id}) MERGE (u)-[r:OFFERED]->(d) SET r.ts = datetime(), r.status='pending'",
             courier_id=courier_id,
@@ -630,7 +612,6 @@ def accept_offer(delivery_id):
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
 
-    # Validate the offer exists in memory for this courier
     offer = _pending_offers.get(user_id)
     if not offer or offer['delivery_id'] != delivery_id:
         return jsonify({'error': 'No pending offer found for this courier and delivery'}), 404
@@ -640,7 +621,6 @@ def accept_offer(delivery_id):
             _pending_offers.pop(user_id, None)
             return jsonify({'error': 'Delivery not found'}), 404
 
-        # Validate that the courier is currently connected to the delivery via a 'pending' relationship
         pending_offer = session.run(
             "MATCH (u:User {id: $user_id})-[r:OFFERED {status: 'pending'}]->(d:Delivery {id: $delivery_id}) "
             "RETURN r LIMIT 1",
@@ -651,7 +631,6 @@ def accept_offer(delivery_id):
             _pending_offers.pop(user_id, None)
             return jsonify({'error': 'No pending offer found in the database for this courier and delivery'}), 404
 
-        # Update the relationship status to 'accepted'
         session.run(
             "MATCH (u:User {id: $user_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "SET r.status = 'accepted', r.ts = datetime()",
@@ -659,7 +638,6 @@ def accept_offer(delivery_id):
             delivery_id=delivery_id
         )
 
-        # Get assigned vehicle
         vehicle_id = ""
         vehicle_res = session.run(
             "MATCH (u:User {id: $user_id})-[:USES_VEHICLE]->(v:Vehicle) RETURN v.license_plate AS lp LIMIT 1",
@@ -668,7 +646,6 @@ def accept_offer(delivery_id):
         if vehicle_res:
             vehicle_id = vehicle_res["lp"]
 
-        # Remove from in-memory pending offers
         _pending_offers.pop(user_id, None)
 
         try:
@@ -725,7 +702,6 @@ def reject_offer(delivery_id):
     return jsonify({'message': 'Offer rejected'}), 200
 
 
-# Courier actions: pickup, deliver, cancel
 @delivery_bp.route('/<delivery_id>/pickup', methods=['POST'])
 def courier_pickup(delivery_id):
     data = request.get_json(force=True)
@@ -733,7 +709,6 @@ def courier_pickup(delivery_id):
     if not courier_id:
         return jsonify({'error': 'courier_id required'}), 400
     with driver.session() as session:
-        # verify assigned with status pending
         assigned = session.run(
             "MATCH (u:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "RETURN r.status AS status", 
@@ -754,7 +729,6 @@ def courier_pickup(delivery_id):
             courier_id=courier_id,
             delivery_id=delivery_id
         )
-        # update Redis status so location-service writes it into points
         try:
             redis_client.hset(f"pos:{courier_id}", mapping={"delivery_status": "in_transit"})
         except Exception:
@@ -770,7 +744,6 @@ def courier_deliver(delivery_id):
     if not courier_id:
         return jsonify({'error': 'courier_id required'}), 400
     with driver.session() as session:
-        # verify assigned with status in transit
         assigned = session.run(
             "MATCH (u:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "RETURN r.status AS status", 
@@ -785,14 +758,12 @@ def courier_deliver(delivery_id):
         if status != 'in transit':
             return jsonify({'error': f'Cannot deliver in status {status}'}), 400
             
-        # mark completed
         session.run(
             "MATCH (u:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "SET r.status = 'completed', d.delivery_time = datetime()", 
             courier_id=courier_id,
             delivery_id=delivery_id
         )
-        # update Redis and stop tracking
         try:
             redis_client.hset(f"pos:{courier_id}", mapping={"delivery_status": "completed"})
         except Exception:
@@ -811,7 +782,6 @@ def courier_cancel(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
     with driver.session() as session:
-        # allow cancelled by assigned courier
         assigned = session.run(
             "MATCH (u:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "RETURN r.status AS status", 
@@ -822,7 +792,6 @@ def courier_cancel(delivery_id):
         if not assigned:
             return jsonify({'error': 'Not assigned to this courier'}), 403
             
-        # Set status to cancelled and clear timestamps
         session.run(
             "MATCH (u:User {id: $courier_id})-[r:OFFERED]->(d:Delivery {id: $delivery_id}) "
             "SET r.status = 'cancelled' "
@@ -830,7 +799,6 @@ def courier_cancel(delivery_id):
             courier_id=courier_id,
             delivery_id=delivery_id
         )
-        # update Redis and stop tracking
         try:
             redis_client.hset(f"pos:{courier_id}", mapping={"delivery_status": "cancelled"})
         except Exception:
@@ -847,7 +815,6 @@ def courier_cancel(delivery_id):
 @jwt_required()
 def get_parameters():
     try:
-        # Default values if not set
         defaults = {
             "weight_distance_to_restaurant": "0.5",
             "weight_distance_route": "0.5",
@@ -916,7 +883,6 @@ def calculate_courier_score(
     product_count: int,
     params: dict
 ) -> float:
-    # Normalize vehicle type
     v_type = vehicle_type
     if v_type in ['bike', 'motorcycle']:
         v_type = 'scooter'
@@ -924,16 +890,13 @@ def calculate_courier_score(
     cap_key = f"capacity_{v_type}"
     capacity = params.get(cap_key, params.get("capacity_bicycle"))
 
-    # Hard constraint: order cannot exceed the car's capacity (global upper limit)
     max_cap = params.get("capacity_car", 15.0)
     if product_count > max_cap:
         return 1e9
 
-    # Hard constraint: order cannot exceed this courier's vehicle capacity
     if product_count > capacity:
         return 1e9
 
-    # Adjusted distance based on speed factors (car > scooter > bicycle)
     speed_factors = {
         "car": 3.0,
         "scooter": 2.0,
@@ -1036,7 +999,6 @@ def assign_deliveries_job():
             except Exception as e:
                 print(f"Error reading rejections from Redis: {e}")
 
-        # Also get cancelled from Neo4j if any still exist
         cancelled_res = session.run(
             "MATCH (u:User)-[r:OFFERED]->(d:Delivery) "
             "WHERE r.status = 'cancelled' "
@@ -1070,10 +1032,8 @@ def assign_deliveries_job():
                 courier_restaurant_distance = 0.0
                 restaurant_customer_distance = 0.0
                 
-                # Check if courier has a valid location
                 if courier["lat"] is None or courier["lon"] is None or (courier["lat"] == 0.0 and courier["lon"] == 0.0):
-                    # Penalty for no location
-                    courier_restaurant_distance = 1000.0 # 1000 km penalty
+                    courier_restaurant_distance = 1000.0
                 elif restaurant_lat is not None and restaurant_lon is not None:
                     courier_restaurant_distance = haversine_distance(
                         courier["lat"], courier["lon"],
@@ -1120,7 +1080,6 @@ def assign_deliveries_job():
             print(f"[Scheduler] In-memory offer: delivery {delivery_id} -> courier {best_courier['id']} (score={best_score:.2f})")
 
 def run_scheduler():
-    # Allow some startup time for DB connections to stabilize
     time.sleep(5)
     while True:
         try:
@@ -1136,10 +1095,9 @@ def run_scheduler():
             else:
                 print(f"Error in delivery scheduler: {e}", flush=True)
                 traceback.print_exc()
-        time.sleep(15)  # Batch dispatch cycle: 15 seconds
+        time.sleep(15)
 
 
-# Start the background scheduler thread
 scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
 scheduler_thread.start()
 

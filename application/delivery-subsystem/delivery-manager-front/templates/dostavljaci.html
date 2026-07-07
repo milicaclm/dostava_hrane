@@ -51,7 +51,7 @@
         </div>
     </div>
 
-    <!-- Napredna pretraga panel -->
+    
     <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
         <div class="search-grid">
             <div class="search-field">
@@ -121,11 +121,11 @@
             </tr>
         </thead>
         <tbody>
-            <!-- Dinamički podaci iz baze -->
+            
         </tbody>
     </table>
 
-    <!-- Modal za dodavanje/izmenu dostavljača -->
+    
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div id="modalTitle" class="modal-header">Novi dostavljač</div>
@@ -395,9 +395,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadCouriers(); // Učitavanje podataka odmah po otvaranju stranice
+            loadCouriers(); 
 
-            // Povezivanje input/change slušalaca na sve filtere za instant pretragu
+            
             document.getElementById('search-basic').addEventListener('input', applyFilters);
             document.getElementById('filter-id').addEventListener('input', applyFilters);
             document.getElementById('filter-name').addEventListener('input', applyFilters);
@@ -422,12 +422,12 @@
                     const tbody = table.querySelector('tbody');
                     const index = Array.from(th.parentNode.children).indexOf(th);
 
-                    // Resetovanje indikatora na ostalim kolonama
+                    
                     table.querySelectorAll('th.sortable').forEach(header => {
                         if (header !== th) header.classList.remove('asc', 'desc');
                     });
 
-                    // Postavljanje indikatora na trenutnoj koloni
+                    
                     if (asc) {
                         th.classList.remove('desc');
                         th.classList.add('asc');
@@ -441,7 +441,7 @@
                         const valA = a.children[index].innerText.trim();
                         const valB = b.children[index].innerText.trim();
 
-                        // Provera da li je broj
+                        
                         if (!isNaN(valA) && !isNaN(valB) && valA !== '' && valB !== '') {
                             return asc ? valA - valB : valB - valA;
                         } else {

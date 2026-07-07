@@ -1,4 +1,3 @@
-#servis za upravljanje nalozima
 import uuid
 import os
 from flask import Blueprint, jsonify, request
@@ -14,10 +13,8 @@ def get_user_role(session, user_id):
 
 try:
     with driver.session() as _session:
-        # ensure unique id constraint exists
         _session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE")
 except Exception:
-    # if Neo4j isn't ready yet, ignore — it will be created later
     pass
 
 
@@ -155,7 +152,6 @@ def login():
 def register():
     data = request.get_json()
     with driver.session() as session:
-        # generate UUID if client didn't provide an id
         user_id = data.get("id") if data.get("id") else str(uuid.uuid4())
         session.run(
             "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, "
@@ -303,4 +299,4 @@ def end_shift(user_id):
 
 
 
-
+

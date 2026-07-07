@@ -12,7 +12,6 @@ import random
 
 lock = threading.Lock()
 
-# Pratimo pokrenute niti u memoriji kako bismo izbegli dupliranje
 active_threads = {}
 
 location_bp = Blueprint('location', __name__)
@@ -23,7 +22,6 @@ write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 query_api = influx_client.query_api()
 delete_api = influx_client.delete_api()
 
-# Koristi se za interne pozive ka drugim modulima (npr. provera korisnika)
 INTERNAL_API_URL = os.environ.get("INTERNAL_API_URL", "http://localhost:8080")
 
 @location_bp.route("/health", methods=["GET"])
@@ -100,7 +98,6 @@ def current_position():
         return jsonify({"error": str(e)}), 500
 
 
-#format vremena: 2024-06-01T12:00:00Z [YYYY-MM-DD'T'HH:MM:SS'Z']
 @location_bp.route("/delete_positions", methods=["DELETE"])
 def delete_position_points():
     data = request.get_json()
@@ -112,7 +109,6 @@ def delete_position_points():
         return jsonify({"error": "Missing start_time, end_time or user_id"}), 400
 
     try:
-        # InfluxDB delete API expects datetime objects or strings in RFC3339
         delete_api.delete(
             start_time, 
             end_time, 
@@ -155,7 +151,6 @@ def set_position():
 def tracking_loop(user_id):
     count = 0
     while redis_client.get(f"tracking:{user_id}") == "true":
-        # read enriched hash from redis
         data = redis_client.hgetall(f"pos:{user_id}")
         if not data:
             time.sleep(1)
@@ -170,7 +165,6 @@ def tracking_loop(user_id):
         delivery_status = data.get("delivery_status", "")
         vehicle_id = data.get("vehicle_id", "")
 
-        # Simulacija kretanja prema restoranu ili kupcu iz baze Neo4j
         target_lat = None
         target_lon = None
         if delivery_id:
@@ -194,14 +188,13 @@ def tracking_loop(user_id):
             except Exception as db_err:
                 print(f"Error fetching delivery details for simulation: {db_err}")
 
-        # Ukoliko imamo metu i još nismo stigli, pomeramo poziciju za korak (~100m)
         if target_lat is not None and target_lon is not None and lat != 0.0 and lon != 0.0:
             import math
             d_lat = target_lat - lat
             d_lon = target_lon - lon
             distance = math.sqrt(d_lat**2 + d_lon**2)
             if distance > 0.0001:
-                step = 0.0008  # brzina kretanja po koraku (svakih 5 sekundi)
+                step = 0.0008
                 if distance <= step:
                     lat = target_lat
                     lon = target_lon
@@ -209,7 +202,6 @@ def tracking_loop(user_id):
                     lat += (d_lat / distance) * step
                     lon += (d_lon / distance) * step
                 
-                # Ažuriramo poziciju u Redis-u kako bi i front-end video kretanje
                 try:
                     redis_client.hset(f"pos:{user_id}", mapping={
                         "lat": str(lat),
@@ -247,45 +239,35 @@ def tracking_loop(user_id):
 @location_bp.route("/start", methods=["POST"])
 def start_tracking():
     data = request.get_json() or {}
-    # accept user_id from query or JSON body
     user_id = request.args.get('user_id') or data.get('user_id')
-    # require delivery_id (from query or JSON) so each point includes it
     delivery_id = request.args.get('delivery_id') or data.get('delivery_id')
     vehicle_id = request.args.get('vehicle_id') or data.get('vehicle_id')
     if not delivery_id:
         return jsonify({"status": "error", "message": "delivery_id is required"}), 400
-    # require a user_id
     if not user_id:
         return jsonify({"status": "error", "message": "user_id is required"}), 400
 
-    # Provera korisnika unutar istog subsystema
     try:
-        # Putanja mora odgovarati prefiksu registrovanom u app.py (/users)
         resp = requests.get(f"{INTERNAL_API_URL}/users/{user_id}", timeout=3)
         if resp.status_code != 200:
             return jsonify({"status": "error", "message": "user not found or not active"}), 404
     except requests.RequestException:
         return jsonify({"status": "error", "message": "user-service unreachable"}), 503
 
-    # require existing position data in Redis before starting
     existing = redis_client.hgetall(f"pos:{user_id}")
-    # persist provided delivery_id into the Redis hash (add to mapping)
     try:
         mapping = {"delivery_id": delivery_id}
         if vehicle_id:
             mapping["vehicle_id"] = vehicle_id
         redis_client.hset(f"pos:{user_id}", mapping=mapping)
-        # refresh existing map for subsequent checks
         existing = redis_client.hgetall(f"pos:{user_id}")
     except Exception as e:
         print(f"Error setting delivery_id: {e}")
         return jsonify({"status": "error", "message": "failed to persist delivery_id"}), 500
     if not existing:
         return jsonify({"status": "error", "message": "no position data for user; start aborted"}), 400
-    # delivery_id and delivery_status (if any) are expected to be set by delivery-service
 
     if redis_client.get(f"tracking:{user_id}") == "true":
-        # Provera da li je nit već aktivna u trenutnom procesu
         if user_id in active_threads and active_threads[user_id].is_alive():
             return jsonify({"status": "already running"}), 200
 

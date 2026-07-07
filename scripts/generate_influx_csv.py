@@ -24,22 +24,22 @@ VEHICLES = {
 }
 
 DRIVER_START = {
-    "user-del-1": (45.2423, 19.8415),  # Bulevar oslobodjenja
-    "user-del-2": (45.2512, 19.8204),  # Detelinara
-    "user-del-3": (45.2341, 19.8282)   # Liman
+    "user-del-1": (45.2423, 19.8415),
+    "user-del-2": (45.2512, 19.8204),
+    "user-del-3": (45.2341, 19.8282)
 }
 
 RESTAURANTS = [
-    (45.2541, 19.8423),  # Centar
-    (45.2435, 19.8398),  # Futoska
-    (45.2512, 19.8490)   # Dunavski park
+    (45.2541, 19.8423),
+    (45.2435, 19.8398),
+    (45.2512, 19.8490)
 ]
 
 CUSTOMERS = [
-    (45.2392, 19.8354),  # Liman 3
-    (45.2498, 19.8032),  # Novo Naselje
-    (45.2612, 19.8184),  # Detelinara
-    (45.2381, 19.7990)   # Telep
+    (45.2392, 19.8354),
+    (45.2498, 19.8032),
+    (45.2612, 19.8184),
+    (45.2381, 19.7990)
 ]
 
 START_TIME = datetime(2026, 6, 1, 8, 0, 0)
@@ -79,9 +79,6 @@ def sample_route(coords, num_steps):
 with open(OUT, "w", newline="", encoding="utf-8") as f:
     writer = csv.writer(f)
 
-    # --------------------------------------------------
-    # InfluxDB Annotated CSV header
-    # --------------------------------------------------
     writer.writerow([
         "#datatype",
         "measurement",
@@ -138,25 +135,20 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
         current_time = START_TIME
         vehicle_id = VEHICLES[driver]
         
-        # Start location for the driver
         curr_lat, curr_lon = DRIVER_START[driver]
 
-        # Each driver performs 6 deliveries
         for delivery_num in range(6):
             delivery_id = f"del-{delivery_counter}"
             delivery_counter += 1
 
-            # Choose random restaurant and customer
             r_lat, r_lon = choice(RESTAURANTS)
             c_lat, c_lon = choice(CUSTOMERS)
 
-            # Generate routes
             route_to_restaurant = get_osrm_route(curr_lat, curr_lon, r_lat, r_lon)
             route_to_customer = get_osrm_route(r_lat, r_lon, c_lat, c_lon)
 
-            # 1. Phase: accepted (moving to restaurant)
             duration_acc = randint(3, 6)
-            steps_acc = duration_acc * 6  # 6 steps per minute (every 10s)
+            steps_acc = duration_acc * 6
             points_acc = sample_route(route_to_restaurant, steps_acc)
             
             for lat, lon in points_acc:
@@ -174,7 +166,6 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
                 total_rows += 1
                 current_time += timedelta(seconds=10)
 
-            # 2. Phase: in transit (moving to customer)
             duration_transit = randint(10, 20)
             steps_transit = duration_transit * 6
             points_transit = sample_route(route_to_customer, steps_transit)
@@ -194,8 +185,6 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
                 total_rows += 1
                 current_time += timedelta(seconds=10)
 
-            # 3. Phase: completed (delivered)
-            # Add final delivery completion record
             curr_lat, curr_lon = c_lat, c_lon
             writer.writerow([
                 "",
@@ -210,7 +199,6 @@ with open(OUT, "w", newline="", encoding="utf-8") as f:
             ])
             total_rows += 1
 
-            # Break between deliveries
             current_time += timedelta(minutes=randint(10, 20))
 
 print(f"Successfully generated {total_rows} rows in {OUT}")

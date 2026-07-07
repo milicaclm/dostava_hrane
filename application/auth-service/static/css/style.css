@@ -9,14 +9,14 @@ body {
 }
 
 .content-block {
-    /* Uklonjeno width: 100% i max-width */
-    width: 360px; /* Fiksna širina za uredan izgled */
+    
+    width: 360px; 
     padding: 40px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     text-align: center;
-    box-sizing: border-box; /* Važno da padding ne poveća širinu */
+    box-sizing: border-box; 
 }
 
 h1 {
@@ -65,5 +65,5 @@ button:hover {
     margin-top: 15px;
     text-align: center;
     font-size: 14px;
-    min-height: 20px; /* Rezerviše prostor za poruku */
+    min-height: 20px; 
 }

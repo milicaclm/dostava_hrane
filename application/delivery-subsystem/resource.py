@@ -1,4 +1,3 @@
-#servis za menadžment resursima
 import os
 import uuid
 from flask import Blueprint, jsonify, request
@@ -29,10 +28,8 @@ def get_vehicles():
     with driver.session() as session:
         params = {}
         
-        # Osnovni upit koji dohvata sva vozila
         query_base = "MATCH (v:Vehicle)"
 
-        # Ako je prosleđen filter za vlasnika, modifikuj upit sa filtriranjem is_ready=true za dostavljače
         if owner_id_filter:
             query_base = """
             MATCH (v:Vehicle)
@@ -51,7 +48,6 @@ def get_vehicles():
             """
             params['owner_id'] = owner_id_filter
         
-        # Nastavak upita za proveru da li je vozilo u upotrebi i ko ga koristi
         query = f"""
         {query_base}
         OPTIONAL MATCH (v)<-[:USES_VEHICLE]-(u_assigned:User)
@@ -171,7 +167,6 @@ def update_vehicle(vehicle_id):
     current_user_id = get_jwt_identity()
     data = request.get_json()
     
-    # Validacija
     if not data.get("type"):
         return jsonify({"error": "Type is required"}), 400
 
@@ -188,7 +183,6 @@ def update_vehicle(vehicle_id):
 
         vehicle_owner_id = vehicle_record["owner_id"]
 
-        # Check permissions
         is_owner = (vehicle_owner_id == current_user_id)
         is_manager_and_unowned = (user_role == 'manager' and vehicle_owner_id is None)
 
@@ -261,7 +255,6 @@ def update_product(product_id):
         else:
             return jsonify({"error": "Product not found"}), 404
         
-# create
 
 @resource_bp.route('/products', methods=['POST'])
 def create_product():
@@ -308,7 +301,6 @@ def create_vehicle():
     current_user_id = get_jwt_identity()
     data = request.get_json()
 
-    # Validacija
     if not data.get("type"):
         return jsonify({"error": "Type is required"}), 400
     
@@ -349,7 +341,6 @@ def create_vehicle():
     return jsonify({"message": "Vehicle created successfully", "id": vehicle_id}), 201
 
 
-# delete
 
 @resource_bp.route('/products/<product_id>', methods=['DELETE'])
 def delete_product(product_id):
@@ -384,7 +375,6 @@ def delete_vehicle(vehicle_id):
 
         vehicle_owner_id = vehicle_record["owner_id"]
 
-        # Check permissions
         is_owner = (vehicle_owner_id == current_user_id)
         is_manager_and_unowned = (user_role == 'manager' and vehicle_owner_id is None)
 

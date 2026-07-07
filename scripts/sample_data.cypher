@@ -1,6 +1,6 @@
-/* sample_data.cypher - comprehensive example with manager, admin, deliverers, customers, vehicles, restaurants & products */
-// === USERS ===
-// 1 manager
+
+
+
 CREATE
   (manager:User
     {
@@ -14,7 +14,7 @@ CREATE
       is_active: true
     });
 
-// 1 administrator
+
 CREATE
   (admin:User
     {
@@ -28,7 +28,7 @@ CREATE
       is_active: true
     });
 
-// 4 deliverers
+
 CREATE
   (d1:User
     {
@@ -94,7 +94,7 @@ CREATE
       average_rating: 3.9
     });
 
-// 9 customers
+
 CREATE
   (c1:User
     {
@@ -204,7 +204,7 @@ CREATE
       is_active: true
     });
 
-// === VEHICLES ===
+
 CREATE
   (v1:Vehicle
     {
@@ -232,7 +232,7 @@ CREATE
       description: 'Mali gradski auto'
     });
 
-// === PRODUCTS ===
+
 CREATE
   (p1:Product
     {
@@ -258,8 +258,8 @@ CREATE
       price: 5.99
     });
 
-// === DELIVERIES & RELATIONSHIPS ===
-// Customer 1 -> Delivery 1 (Pizza)
+
+
 CREATE
   (del1:Delivery
     {
@@ -278,7 +278,7 @@ CREATE (d1)-[:ASSIGNED_TO]->(del1);
 CREATE (del1)-[:CONTAINS_PRODUCT]->(p1);
 CREATE (d1)-[:USES_VEHICLE]->(v1);
 
-// Customer 2 -> Delivery 2 (Sushi)
+
 CREATE
   (del2:Delivery
     {
@@ -297,7 +297,7 @@ CREATE (d2)-[:ASSIGNED_TO]->(del2);
 CREATE (del2)-[:CONTAINS_PRODUCT]->(p2);
 CREATE (d2)-[:USES_VEHICLE]->(v2);
 
-// Customer 3 -> Delivery 3 (Burger)
+
 CREATE
   (del3:Delivery
     {
@@ -314,7 +314,7 @@ CREATE (d3)-[:ASSIGNED_TO]->(del3);
 CREATE (del3)-[:CONTAINS_PRODUCT]->(p3);
 CREATE (d3)-[:USES_VEHICLE]->(v1);
 
-// Customer 4 -> Delivery 4 (Pizza)
+
 CREATE
   (del4:Delivery
     {
@@ -329,7 +329,7 @@ CREATE (d4)-[:ASSIGNED_TO]->(del4);
 CREATE (del4)-[:CONTAINS_PRODUCT]->(p1);
 CREATE (d4)-[:USES_VEHICLE]->(v2);
 
-// Customer 5 -> Delivery 5 (Sushi)
+
 CREATE
   (del5:Delivery
     {
@@ -348,7 +348,7 @@ CREATE (d1)-[:ASSIGNED_TO]->(del5);
 CREATE (del5)-[:CONTAINS_PRODUCT]->(p2);
 CREATE (d1)-[:USES_VEHICLE]->(v2);
 
-// Customer 6 -> Delivery 6 (Burger)
+
 CREATE
   (del6:Delivery
     {
@@ -367,7 +367,7 @@ CREATE (d2)-[:ASSIGNED_TO]->(del6);
 CREATE (del6)-[:CONTAINS_PRODUCT]->(p3);
 CREATE (d2)-[:USES_VEHICLE]->(v1);
 
-// Customer 7 -> Delivery 7 (Pizza)
+
 CREATE
   (del7:Delivery
     {
@@ -384,7 +384,7 @@ CREATE (d3)-[:ASSIGNED_TO]->(del7);
 CREATE (del7)-[:CONTAINS_PRODUCT]->(p1);
 CREATE (d3)-[:USES_VEHICLE]->(v2);
 
-// Customer 8 -> Delivery 8 (Sushi)
+
 CREATE
   (del8:Delivery
     {
@@ -400,7 +400,7 @@ CREATE
   (del8);
 CREATE (del8)-[:CONTAINS_PRODUCT]->(p2);
 
-// Customer 9 -> Delivery 9 (Burger)
+
 CREATE
   (del9:Delivery
     {

@@ -3,13 +3,11 @@ from redis import Redis
 from neo4j import GraphDatabase
 from influxdb_client import InfluxDBClient
 
-# 1. Neo4j initialization
 driver = GraphDatabase.driver(
     os.environ.get("NEO4J_URI", "bolt://neo4j:7687"),
     auth=(os.environ.get("NEO4J_USERNAME", "neo4j"), os.environ.get("NEO4J_PASSWORD", "password"))
 )
 
-# 2. Redis initialization with Cache-Aside override
 redis_client = Redis(
     host=os.environ.get("REDIS_HOST", "localhost"),
     port=int(os.environ.get("REDIS_PORT", 6379)),
@@ -30,7 +28,6 @@ def cached_get(key):
     return val
 redis_client.get = cached_get
 
-# 3. InfluxDB initialization
 influx_client = InfluxDBClient(
     url=os.environ.get("INFLUXDB_URL", "http://localhost:8086"),
     token=os.environ.get("INFLUXDB_TOKEN", "mytoken123"),

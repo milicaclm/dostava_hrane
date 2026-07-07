@@ -1,11 +1,6 @@
 @startuml
 hide circle
-'skinparam linetype ortho
-'skinparam classAttributeIconSize 0
 
-' =========================
-' ADMINISTRATOR
-' =========================
 
 package "ADMINISTRATOR" {
 
@@ -27,9 +22,6 @@ class Administrator {
 
 }
 
-' =========================
-' DOSTAVA
-' =========================
 
 package "DOSTAVA" {
 
@@ -93,9 +85,6 @@ class Dostava {
 
 }
 
-' =========================
-' NARUČIVANJE
-' =========================
 
 package "NARUCIVANJE" {
 
@@ -149,9 +138,6 @@ class AnalizaZarade {
 
 }
 
-' =========================
-' RESTORAN
-' =========================
 
 package "RESTORAN" {
 

@@ -25,7 +25,7 @@
 <body>
 
     <div class="container">
-        <!-- Status -->
+        
         <div id="status-container">
             <div id="status-badge" class="status-badge off">
                 <span class="dot"></span>
@@ -44,7 +44,7 @@
             <p class="subtitle">Dostupni ste na mapi i sistem vam može dodeliti nove porudžbine.</p>
             <button class="btn btn-end" id="btn-end-shift">Završi smenu</button>
 
-            <!-- Map Section -->
+            
             <div id="map-container" class="hidden" style="margin-top: 20px; text-align: left; border-top: 2px solid #000000; padding-top: 15px;">
                 <h2 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 12px; color: #000000;">
                     Vaša lokacija
@@ -55,14 +55,14 @@
                 </div>
             </div>
 
-            <!-- Offers Section -->
+            
             <div class="offers-section">
                 <h2>
                     Ponuđene dostave
                     <span id="offers-count" style="font-size: 0.9rem; background: #e2e8f0; padding: 4px 10px; border-radius: 9999px; font-weight: normal; color: #475569;">0</span>
                 </h2>
                 <div id="offers-list-container" class="offers-list">
-                    <!-- Dynamic offers -->
+                    
                 </div>
             </div>
         </div>
@@ -198,7 +198,7 @@
                 return;
             }
 
-            // Učitavanje korisničkog statusa
+            
             try {
                 const response = await fetch(`${API_USERS_URL}/${userId}`, {
                     headers: {
@@ -212,7 +212,7 @@
                 if (response.ok) {
                     const user = await response.json();
                     
-                    // Provera da li već postoji aktivna dostava za ovog kurira u bazi
+                    
                     const activeRes = await fetch(`${API_DELIVERIES_URL}/active`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -248,11 +248,11 @@
                 startView.classList.add('hidden');
                 activeView.classList.remove('hidden');
                 
-                // Inicijalizuj mapu i učitaj sačuvanu lokaciju
+                
                 initMap();
                 startPositionPolling();
 
-                // Pokretanje periodičnog osvežavanja ponuda
+                
                 fetchOffers();
                 if (!pollingInterval) {
                     pollingInterval = setInterval(fetchOffers, 1000);
@@ -263,10 +263,10 @@
                 startView.classList.remove('hidden');
                 activeView.classList.add('hidden');
 
-                // Sakrij mapu
+                
                 hideMap();
 
-                // Zaustavljanje osvežavanja
+                
                 if (pollingInterval) {
                     clearInterval(pollingInterval);
                     pollingInterval = null;
@@ -284,7 +284,7 @@
             const countBadge = document.getElementById('offers-count');
 
             try {
-                // Proveri dinamički sa servera da li imamo aktivnu dostavu (prihvaćena ili u tranzitu)
+                
                 const activeRes = await fetch(`${API_DELIVERIES_URL}/active`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -293,7 +293,7 @@
                     if (activeDel && activeDel.id) {
                         activeDeliveryId = activeDel.id;
                         
-                        // Force showing the active view if we have an active delivery!
+                        
                         document.getElementById('start-shift-view').classList.add('hidden');
                         document.getElementById('active-shift-view').classList.remove('hidden');
                         document.getElementById('status-badge').className = 'status-badge on';
@@ -398,7 +398,7 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    // Zaustavi polling ponuda, prikaži "Nastavi" dugme
+                    
                     if (pollingInterval) {
                         clearInterval(pollingInterval);
                         pollingInterval = null;
@@ -438,7 +438,7 @@
             }
         }
 
-        // Start Shift
+        
         document.getElementById('btn-start-shift').addEventListener('click', async () => {
             const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
             const userId = getUserIdFromToken(token);
@@ -462,7 +462,7 @@
             }
         });
 
-        // End Shift
+        
         document.getElementById('btn-end-shift').addEventListener('click', async () => {
             const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
             const userId = getUserIdFromToken(token);
@@ -486,7 +486,7 @@
             }
         });
 
-        // Inicijalizacija pri učitavanju
+        
         window.addEventListener('load', initPage);
     </script>
 </body>

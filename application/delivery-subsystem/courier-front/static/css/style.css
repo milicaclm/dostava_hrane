@@ -1,26 +1,26 @@
-/* Osnovni stilovi */
+
 body {
-    font-family: Arial, sans-serif; /* Font kao u vozila.html */
+    font-family: Arial, sans-serif; 
     margin: 0;
-    padding: 20px; /* Padding oko celog sadržaja, kao u vozila.html */
+    padding: 20px; 
     color: #333;
-    background-color: #f0f2f5; /* Pozadina kao u prethodnim primerima */
+    background-color: #f0f2f5; 
 }
 
 h1 {
-    text-align: center; /* Centriran naslov gore, kao u vozila.html */
-    margin-bottom: 40px; /* Razmak ispod naslova */
-    color: #007bff; /* Plava boja za naslov */
+    text-align: center; 
+    margin-bottom: 40px; 
+    color: #007bff; 
 }
 
 .shift-area {
-    max-width: 600px; /* Ograničena širina bloka */
-    margin: 0 auto; /* Centriranje bloka horizontalno */
+    max-width: 600px; 
+    margin: 0 auto; 
     padding: 30px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    text-align: center; /* Centriranje teksta i dugmeta unutar bloka */
+    text-align: center; 
 }
 
 .shift-area p {
@@ -32,7 +32,7 @@ h1 {
 
 .action-button {
     padding: 15px 30px;
-    background-color: #28a745; /* Zelena boja za dugme */
+    background-color: #28a745; 
     color: white;
     border: none;
     border-radius: 5px;

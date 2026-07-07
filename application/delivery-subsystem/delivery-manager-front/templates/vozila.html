@@ -48,7 +48,7 @@
         <button class="btn-add" onclick="openAddModal()">+ Dodaj vozilo</button>
     </div>
 
-    <!-- Napredna pretraga panel -->
+    
     <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
         <div class="search-grid">
             <div class="search-field">
@@ -123,11 +123,11 @@
             </tr>
         </thead>
         <tbody>
-            <!-- Dinamički podaci iz baze -->
+            
         </tbody>
     </table>
 
-    <!-- Modal za dodavanje vozila -->
+    
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div id="modalTitle" class="modal-header">Novo vozilo</div>
@@ -304,7 +304,7 @@
         function openAddModal() {
             isEditMode = false;
             document.getElementById('modalTitle').innerText = 'Novo vozilo';
-            document.getElementById('id-group').style.display = 'none'; // Sakrij ID pri kreiranju
+            document.getElementById('id-group').style.display = 'none'; 
             document.getElementById('add-id').value = '';
             document.getElementById('add-owner').value = '';
             document.getElementById('add-plate').value = '';
@@ -381,7 +381,7 @@
                 if (!v) return;
 
                 document.getElementById('modalTitle').innerText = 'Izmena vozila';
-                document.getElementById('id-group').style.display = 'block'; // Prikazi ID pri izmeni
+                document.getElementById('id-group').style.display = 'block'; 
                 document.getElementById('add-id').value = v.id;
                 document.getElementById('add-id').readOnly = true;
                 document.getElementById('add-owner').value = v.owner_id || '';
@@ -396,9 +396,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadVehicles(); // Učitavanje odmah na startu
+            loadVehicles(); 
 
-            // Povezivanje input/change slušalaca na sve filtere za instant pretragu
+            
             document.getElementById('search-plate-basic').addEventListener('input', applyFilters);
             document.getElementById('filter-id').addEventListener('input', applyFilters);
             document.getElementById('filter-owner-id').addEventListener('input', applyFilters);
@@ -422,12 +422,12 @@
                     const tbody = table.querySelector('tbody');
                     const index = Array.from(th.parentNode.children).indexOf(th);
 
-                    // Resetovanje indikatora na ostalim kolonama
+                    
                     table.querySelectorAll('th.sortable').forEach(header => {
                         if (header !== th) header.classList.remove('asc', 'desc');
                     });
 
-                    // Postavljanje indikatora na trenutnoj koloni
+                    
                     if (asc) {
                         th.classList.remove('desc');
                         th.classList.add('asc');
@@ -441,7 +441,7 @@
                         const valA = a.children[index].innerText.trim();
                         const valB = b.children[index].innerText.trim();
 
-                        // Provera da li je broj
+                        
                         if (!isNaN(valA) && !isNaN(valB) && valA !== '' && valB !== '') {
                             return asc ? valA - valB : valB - valA;
                         } else {

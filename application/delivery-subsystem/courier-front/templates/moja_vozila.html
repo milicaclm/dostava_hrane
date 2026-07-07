@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Moja Vozila</title>
     <style>
-        /* ... (svi stilovi ostaju isti) ... */
+        
         body { font-family: sans-serif; margin: 20px; color: #333; background: #fff; }
         h1 { text-align: center; margin-bottom: 20px; }
         .controls { display: flex; justify-content: space-between; margin-bottom: 15px; }
@@ -52,7 +52,7 @@
         <button class="btn-add" onclick="openAddModal()">+ Dodaj moje vozilo</button>
     </div>
 
-    <!-- Napredna pretraga panel -->
+    
     <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
         <div class="search-grid">
             <div class="search-field">
@@ -120,11 +120,11 @@
             </tr>
         </thead>
         <tbody>
-            <!-- Dinamički podaci iz baze -->
+            
         </tbody>
     </table>
 
-    <!-- Modal za dodavanje vozila -->
+    
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div id="modalTitle" class="modal-header">Novo moje vozilo</div>
@@ -167,10 +167,10 @@
         const API_AUTH_URL = 'http://localhost:8000/api/auth-service/auth/login';
         const API_VEHICLES_URL = 'http://localhost:8000/api/delivery-subsystem/resources/vehicles';
         const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
-        let CURRENT_USER_ID = "user-del-1"; // ID korisnika Marko Marković
-        let jwtToken = null; // Globalna promenljiva za čuvanje tokena
+        let CURRENT_USER_ID = "user-del-1"; 
+        let jwtToken = null; 
         let isEditMode = false;
-        let allVehicles = []; // Sva vozila učitana sa API-ja
+        let allVehicles = []; 
 
         function getUserIdFromToken(token) {
             try {
@@ -251,11 +251,11 @@
             const filterInUse = document.querySelector('input[name="filter-in-use"]:checked').value;
 
             const filtered = allVehicles.filter(vehicle => {
-                // Provera osnovne pretrage po registraciji
+                
                 if (basicPlate && !(vehicle.license_plate && vehicle.license_plate.toLowerCase().includes(basicPlate))) {
                     return false;
                 }
-                // Napredna pretraga
+                
                 if (filterId && !(vehicle.id && vehicle.id.toLowerCase().includes(filterId))) {
                     return false;
                 }
@@ -295,7 +295,7 @@
             tbody.innerHTML = '';
 
             if (vehiclesList && vehiclesList.length > 0) {
-                // Pronađi trenutno odabrano vozilo prijavljenog dostavljača među svim vozilima
+                
                 const currentlyAssignedVehicle = allVehicles.find(v => v.assigned_user_id === CURRENT_USER_ID);
                 const currentAssignedId = currentlyAssignedVehicle ? currentlyAssignedVehicle.id : null;
 
@@ -353,7 +353,7 @@
                 if (data.vehicles && data.vehicles.length > 0) {
                     allVehicles = data.vehicles;
                     
-                    // Sortiraj tako da je odabrano vozilo na vrhu
+                    
                     allVehicles.sort((a, b) => {
                         const aAssigned = a.assigned_user_id === CURRENT_USER_ID;
                         const bAssigned = b.assigned_user_id === CURRENT_USER_ID;
@@ -378,7 +378,7 @@
             }
             try {
                 if (currentAssignedId) {
-                    // Otkaži prethodno odabrano vozilo
+                    
                     await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/unassign_vehicle/${currentAssignedId}`, {
                         method: 'POST',
                         headers: {
@@ -387,7 +387,7 @@
                     });
                 }
                 
-                // Odaberi novo vozilo
+                
                 const resp = await fetch(`${API_USERS_URL}/${CURRENT_USER_ID}/assign_vehicle/${vehicleId}`, {
                     method: 'POST',
                     headers: {
@@ -432,7 +432,7 @@
         function openAddModal() {
             isEditMode = false;
             document.getElementById('modalTitle').innerText = 'Novo moje vozilo';
-            document.getElementById('id-group').style.display = 'none'; // Sakrij ID pri kreiranju
+            document.getElementById('id-group').style.display = 'none'; 
             document.getElementById('add-id').value = '';
             document.getElementById('add-plate').value = '';
             document.getElementById('add-type').value = 'bicycle';
@@ -495,7 +495,7 @@
                 if (!v) return;
 
                 document.getElementById('modalTitle').innerText = 'Izmena vozila';
-                document.getElementById('id-group').style.display = 'block'; // Prikazi ID pri izmeni
+                document.getElementById('id-group').style.display = 'block'; 
                 document.getElementById('add-id').value = v.id;
                 document.getElementById('add-plate').value = v.license_plate || '';
                 document.getElementById('add-type').value = v.type || '';
@@ -508,9 +508,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            initPage(); // Pokrećemo ceo proces pri učitavanju stranice
+            initPage(); 
 
-            // Povezivanje input/change slušalaca na sve filtere za instant pretragu
+            
             document.getElementById('search-plate-basic').addEventListener('input', applyFilters);
             document.getElementById('filter-id').addEventListener('input', applyFilters);
             document.getElementById('filter-owner-id').addEventListener('input', applyFilters);

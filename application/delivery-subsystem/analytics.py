@@ -194,7 +194,6 @@ def generisi_izvestaj_pdf():
     from flask import send_file
 
     try:
-        # 1. Prihvati podatke
         veh_data = prihvacene_po_vozilu()[0].get_json()
         range_data = opseg_kretanja()[0].get_json()
         eff_data = efikasnost_dostave()[0].get_json()

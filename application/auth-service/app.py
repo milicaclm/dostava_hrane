@@ -4,14 +4,12 @@ from neo4j import GraphDatabase
 from flask_jwt_extended import create_access_token, JWTManager
 import uuid
 
-# Inicijalizacija aplikacije sa putanjama do templates i static foldera
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 auth_bp = Blueprint('auth', __name__)
 
-# JWT Konfiguracija
 from datetime import timedelta
-app.config['JWT_SECRET_KEY'] = 'dev-secret-key' # Consider using a more secure key in production
+app.config['JWT_SECRET_KEY'] = 'dev-secret-key'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=20)
 jwt = JWTManager(app)
 
@@ -22,13 +20,10 @@ driver = GraphDatabase.driver(
 
 try:
     with driver.session() as _session:
-        # ensure unique id constraint exists
         _session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE")
 except Exception:
-    # if Neo4j isn't ready yet, ignore — it will be created later
     pass
 
-# Ruta za prikaz login stranice
 @app.route("/")
 def index():
     return render_template('login.html')
@@ -44,7 +39,6 @@ def login():
         record = result.single()
         if record:
             user_node = record["u"]
-            # Dodajemo tip naloga u token
             additional_claims = {"account_type": user_node["account_type"]}
             access_token = create_access_token(identity=user_node["id"], additional_claims=additional_claims)
             return jsonify(access_token=access_token), 200
@@ -55,7 +49,6 @@ def login():
 def register():
     data = request.get_json()
     with driver.session() as session:
-        # generate UUID if client didn't provide an id
         user_id = data.get("id") if data.get("id") else str(uuid.uuid4())
         session.run(
             "CREATE (u:User {id: $id, name: $name, surname: $surname, email: $email, phone_number: $phone_number, "
