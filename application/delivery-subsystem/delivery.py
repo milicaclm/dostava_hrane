@@ -8,7 +8,7 @@ import threading
 import json
 import numpy as np
 from scipy.optimize import linear_sum_assignment
-from db import driver, redis_client
+from db import driver, redis_client, redis_cache, invalidate_cache
 delivery_bp = Blueprint('delivery', __name__)
 
 _pending_offers: dict = {}
@@ -101,6 +101,7 @@ def get_active_delivery():
 
 
 @delivery_bp.route('/<delivery_id>')
+@redis_cache("delivery")
 def get_delivery(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -178,6 +179,7 @@ def create_delivery():
     return jsonify({"message": "Delivery created successfully"}), 201
 
 @delivery_bp.route('/<delivery_id>', methods=['PUT'])
+@invalidate_cache("delivery")
 def update_delivery(delivery_id):
     data = request.get_json()
     with driver.session() as session:
@@ -233,6 +235,7 @@ def update_delivery(delivery_id):
         
 
 @delivery_bp.route('/<delivery_id>', methods=['DELETE'])
+@invalidate_cache("delivery")
 def delete_delivery(delivery_id):
     with driver.session() as session:
         result = session.run("MATCH (d:Delivery {id: $delivery_id}) DETACH DELETE d RETURN COUNT(d) AS deleted_count", delivery_id=delivery_id)

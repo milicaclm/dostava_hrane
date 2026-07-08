@@ -3,6 +3,7 @@ import uuid
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from neo4j import GraphDatabase
+from db import invalidate_cache
 
 resource_bp = Blueprint('resource', __name__)
 
@@ -123,6 +124,7 @@ def get_couriers():
 
         
 @resource_bp.route('/couriers/<courier_id>/update', methods=['PUT'])
+@invalidate_cache("user")
 def update_courier(courier_id):
     data = request.get_json()
     with driver.session() as session:
@@ -392,6 +394,7 @@ def delete_vehicle(vehicle_id):
             return jsonify({"error": "Vehicle not found or deletion failed"}), 404
     
 @resource_bp.route('/couriers/<courier_id>', methods=['DELETE'])
+@invalidate_cache("user")
 def delete_courier(courier_id):
     with driver.session() as session:
         result = session.run(

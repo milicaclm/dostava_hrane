@@ -2,7 +2,7 @@ import uuid
 import os
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from db import driver, redis_client
+from db import driver, redis_client, redis_cache, invalidate_cache
 
 user_bp = Blueprint('user', __name__)
 
@@ -51,15 +51,36 @@ def get_users():
 
 @user_bp.route('/<user_id>')
 @jwt_required()
+@redis_cache("user")
 def get_user(user_id):
-    import json
-    data = redis_client.get(f"user:{user_id}")
-    return jsonify(json.loads(data)) if data else (jsonify({"error": "User not found"}), 404)
+    with driver.session() as session:
+        result = session.run("MATCH (u:User {id: $id}) RETURN u", id=user_id)
+        record = result.single()
+        if record:
+            user_node = record["u"]
+            user = {
+                "id": user_node["id"],
+                "name": user_node["name"],
+                "surname": user_node["surname"],
+                "email": user_node["email"],
+                "phone_number": user_node["phone_number"],
+                "account_type": user_node["account_type"],
+                "account_status": user_node.get("account_status"),
+                "motorcycle_license": user_node.get("motorcycle_license"),
+                "car_license": user_node.get("car_license"),
+                "salary": user_node.get("salary"),
+                "average_rating": user_node.get("average_rating"),
+                "is_active": user_node["is_active"]
+            }
+            return jsonify(user)
+        else:
+            return jsonify({"error": "User not found"}), 404
         
 
 
 @user_bp.route('/<user_id>', methods=['PUT'])
 @jwt_required()
+@invalidate_cache("user")
 def update_user(user_id):
     current_user_id = get_jwt_identity()
     with driver.session() as session:
@@ -107,13 +128,13 @@ def update_user(user_id):
                 "average_rating": user_node.get("average_rating"),
                 "is_active": user_node["is_active"]
             }
-            redis_client.delete(f"user:{user_id}")
             return jsonify(user)
         else:
             return jsonify({"error": "User not found"}), 404
 
 @user_bp.route('/<user_id>', methods=['DELETE'])
 @jwt_required()
+@invalidate_cache("user")
 def delete_user(user_id):
     current_user_id = get_jwt_identity()
     with driver.session() as session:
@@ -125,7 +146,6 @@ def delete_user(user_id):
         result = session.run("MATCH (u:User {id: $user_id}) DETACH DELETE u RETURN COUNT(u) AS deleted_count", user_id=user_id)
         record = result.single()
         if record["deleted_count"] > 0:
-            redis_client.delete(f"user:{user_id}")
             return jsonify({"message": "User deleted successfully"})
         else:
             return jsonify({"error": "User not found"}), 404
@@ -247,6 +267,7 @@ def unassign_vehicle(user_id, vehicle_id):
 
 @user_bp.route('/<user_id>/start_shift', methods=['POST'])
 @jwt_required()
+@invalidate_cache("user")
 def start_shift(user_id):
     current_user_id = get_jwt_identity()
     with driver.session() as session:
@@ -267,12 +288,12 @@ def start_shift(user_id):
             user_id=user_id
         )
 
-    redis_client.delete(f"user:{user_id}")
     return jsonify({"message": "Shift started successfully, courier is now available"}), 200
 
 
 @user_bp.route('/<user_id>/end_shift', methods=['POST'])
 @jwt_required()
+@invalidate_cache("user")
 def end_shift(user_id):
     current_user_id = get_jwt_identity()
     with driver.session() as session:
@@ -293,10 +314,4 @@ def end_shift(user_id):
             user_id=user_id
         )
 
-    redis_client.delete(f"user:{user_id}")
     return jsonify({"message": "Shift ended successfully, courier is now unavailable"}), 200
-
-
-
-
-

@@ -31,19 +31,25 @@ def health():
 
 @location_bp.route("/add_position", methods=["POST"])
 def create_position_point():
-    data = request.get_json()
+    data = request.get_json() or {}
     user_id = request.args.get("user_id") or data.get("user_id")
     lat = data.get("lat")
     lon = data.get("lon")
     
     if not user_id or lat is None or lon is None:
         return jsonify({"error": "Missing parameters"}), 400
+        
+    try:
+        lat_f = float(lat)
+        lon_f = float(lon)
+    except ValueError:
+        return jsonify({"error": "Invalid lat or lon"}), 400
 
     point = (
         Point("geo_position")
         .tag("user_id", str(user_id))
-        .field("lat", lat)
-        .field("lon", lon)
+        .field("lat", lat_f)
+        .field("lon", lon_f)
         .time(datetime.utcnow(), WritePrecision.NS)
     )
     try:
@@ -100,18 +106,31 @@ def current_position():
 
 @location_bp.route("/delete_positions", methods=["DELETE"])
 def delete_position_points():
-    data = request.get_json()
-    user_id = request.args.get("user_id")
-    start_time = data.get("start_time")
-    end_time = data.get("end_time")
+    data = request.get_json(silent=True) or {}
+    user_id = request.args.get("user_id") or data.get("user_id")
+    start_time = request.args.get("start_time") or data.get("start_time")
+    end_time = request.args.get("end_time") or data.get("end_time")
 
     if not all([user_id, start_time, end_time]):
         return jsonify({"error": "Missing start_time, end_time or user_id"}), 400
 
+    start_str = str(start_time)
+    end_str = str(end_time)
+    
+    if 'T' not in start_str:
+        start_str = start_str.replace(' ', 'T')
+    if not start_str.endswith('Z') and '+' not in start_str:
+        start_str += 'Z'
+        
+    if 'T' not in end_str:
+        end_str = end_str.replace(' ', 'T')
+    if not end_str.endswith('Z') and '+' not in end_str:
+        end_str += 'Z'
+
     try:
         delete_api.delete(
-            start_time, 
-            end_time, 
+            start_str, 
+            end_str, 
             f'_measurement="geo_position" AND user_id="{user_id}"',
             bucket=influx_bucket, 
             org=influx_org
@@ -119,7 +138,7 @@ def delete_position_points():
         return jsonify({"status": "positions deleted"}), 200
     except Exception as e:
         print(f"Error deleting positions: {e}")
-        return jsonify({"status": "error"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @location_bp.route("/set_position", methods=["POST"])

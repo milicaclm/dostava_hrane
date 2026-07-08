@@ -1,5 +1,11 @@
 from flask import Blueprint, request, jsonify
 from db import influx_client as client, influx_bucket, influx_org
+import io
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from flask import send_file
 
 analytics_bp = Blueprint('analytics', __name__)
 
@@ -14,14 +20,12 @@ def prihvacene_po_vozilu():
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
-        |> filter(fn: (r) => r["_measurement"] == "geo_position")
+        |> filter(fn: (r) => r["_measurement"] == "geo_position")  // 1. FILTRIRANJE
         |> filter(fn: (r) => r["_field"] == "delivery_status")
         |> filter(fn: (r) => r["_value"] == "accepted")
-        |> group(columns: ["vehicle_id", "delivery_id"])
-        |> first()
-        |> group(columns: ["vehicle_id"])
-        |> count()
-        |> sort(columns: ["_value"], desc: true)
+        |> group(columns: ["vehicle_id"])                         // 2. GRUPISANJE
+        |> count()                                                 // 3. AGREGACIJA
+        |> sort(columns: ["_value"], desc: true)                  // 4. SORTIRANJE
     '''
     try:
         tables = client.query_api().query(query, org=influx_org)
@@ -44,6 +48,7 @@ def opseg_kretanja():
         |> range(start: -60d)
         |> filter(fn: (r) => r["_measurement"] == "geo_position")
         |> filter(fn: (r) => r["_field"] == "lat" or r["_field"] == "lon")
+        |> filter(fn: (r) => r._value > 1.0)
         |> group(columns: ["user_id", "_field"])
         |> spread()
         |> group(columns: ["user_id"])
@@ -109,6 +114,8 @@ def efikasnost_dostave():
 def pouzdanost_radnika():
 
     query = f'''
+        import "experimental"
+
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
         |> filter(fn: (r) => r["_measurement"] == "geo_position")
@@ -186,13 +193,7 @@ def dostave_po_satima():
 
 @analytics_bp.route('/report.pdf', methods=['GET'])
 def generisi_izvestaj_pdf():
-    import io
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_pdf import PdfPages
-    from flask import send_file
-
+    
     try:
         veh_data = prihvacene_po_vozilu()[0].get_json()
         range_data = opseg_kretanja()[0].get_json()
