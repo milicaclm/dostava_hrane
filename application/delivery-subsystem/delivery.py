@@ -247,6 +247,7 @@ def delete_delivery(delivery_id):
         
 
 @delivery_bp.route('/<delivery_id>/products', methods=['POST'])
+@invalidate_cache("delivery")
 def add_product_to_delivery(delivery_id):
     data = request.get_json()
     product_id = data["product_id"]
@@ -281,6 +282,7 @@ def add_product_to_delivery(delivery_id):
             return jsonify({"error": "Delivery or Product not found"}), 404
         
 @delivery_bp.route('/<delivery_id>/products/<product_id>', methods=['DELETE'])
+@invalidate_cache("delivery")
 def remove_product_from_delivery(delivery_id, product_id):
     with driver.session() as session:
         result = session.run(
@@ -316,6 +318,7 @@ def get_delivery_products(delivery_id):
 
 
 @delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['POST'])
+@invalidate_cache("delivery")
 def create_placed_order(delivery_id, customer_id):
     with driver.session() as session:
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
@@ -334,6 +337,7 @@ def create_placed_order(delivery_id, customer_id):
 
 
 @delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['DELETE'])
+@invalidate_cache("delivery")
 def delete_placed_order(delivery_id, customer_id):
     with driver.session() as session:
         res = session.run(
@@ -347,6 +351,7 @@ def delete_placed_order(delivery_id, customer_id):
     
 
 @delivery_bp.route('/<delivery_id>/placed_by/<customer_id>', methods=['PUT'])
+@invalidate_cache("delivery")
 def update_placed_order(delivery_id, customer_id):
     data = request.get_json()
     with driver.session() as session:
@@ -371,6 +376,7 @@ def update_placed_order(delivery_id, customer_id):
 
 
 @delivery_bp.route('/<delivery_id>/assign_courier/<courier_id>', methods=['POST'])
+@invalidate_cache("delivery")
 def assign_courier(delivery_id, courier_id):
     with driver.session() as session:
         if not session.run("MATCH (d:Delivery {id: $delivery_id}) RETURN d", delivery_id=delivery_id).single():
@@ -465,6 +471,7 @@ def get_assigned_vehicle(delivery_id):
 
 
 @delivery_bp.route('/<delivery_id>/unassign_courier', methods=['DELETE'])
+@invalidate_cache("delivery")
 def unassign_courier(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -479,6 +486,7 @@ def unassign_courier(delivery_id):
             return jsonify({"error": "Assigned courier not found"}), 404
 
 @delivery_bp.route('/<delivery_id>/unassign_vehicle', methods=['DELETE'])
+@invalidate_cache("delivery")
 def unassign_vehicle(delivery_id):
     with driver.session() as session:
         result = session.run(
@@ -500,6 +508,7 @@ def unassign_vehicle(delivery_id):
 
 
 @delivery_bp.route('/<delivery_id>/complete', methods=['POST'])
+@invalidate_cache("delivery")
 def complete_delivery(delivery_id):
     """Mark delivery delivered.
     Expects JSON: {"courier_id": "...", "note": "optional"}
@@ -589,6 +598,7 @@ def get_offered_deliveries():
 
 
 @delivery_bp.route('/<delivery_id>/offer/<courier_id>', methods=['POST'])
+@invalidate_cache("delivery")
 def offer_delivery_to_courier(delivery_id, courier_id):
     """Create an OFFER relationship from system to courier for this delivery."""
     with driver.session() as session:
@@ -606,6 +616,7 @@ def offer_delivery_to_courier(delivery_id, courier_id):
 
 
 @delivery_bp.route('/<delivery_id>/accept', methods=['POST'])
+@invalidate_cache("delivery")
 def accept_offer(delivery_id):
     """Courier accepts the in-memory offer.
     Creates the OFFERED relation in DB with status='accepted' only at this point.
@@ -678,6 +689,7 @@ def accept_offer(delivery_id):
 
 
 @delivery_bp.route('/<delivery_id>/reject', methods=['POST'])
+@invalidate_cache("delivery")
 def reject_offer(delivery_id):
     """Courier rejects offer. Remove from memory and delete pending relation from DB."""
     data = request.get_json(force=True)
@@ -706,6 +718,7 @@ def reject_offer(delivery_id):
 
 
 @delivery_bp.route('/<delivery_id>/pickup', methods=['POST'])
+@invalidate_cache("delivery")
 def courier_pickup(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
@@ -741,6 +754,7 @@ def courier_pickup(delivery_id):
 
 
 @delivery_bp.route('/<delivery_id>/deliver', methods=['POST'])
+@invalidate_cache("delivery")
 def courier_deliver(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
@@ -781,6 +795,7 @@ def courier_deliver(delivery_id):
 
 
 @delivery_bp.route('/<delivery_id>/cancel', methods=['POST'])
+@invalidate_cache("delivery")
 def courier_cancel(delivery_id):
     data = request.get_json(force=True)
     courier_id = data.get('courier_id')
