@@ -79,12 +79,12 @@
         {% for d in deliveries %}
         <tr>
             <td>{{ d.id }}</td>
-            <td>{{ d.status }}</td>
+            <td>{{ d.status | fmt_status }}</td>
             <td>{{ d.from_location }}</td>
             <td>{{ d.to_location }}</td>
-            <td>{{ d.order_time or '—' }}</td>
-            <td>{{ d.pickup_time or '—' }}</td>
-            <td>{{ d.delivery_time or '—' }}</td>
+            <td>{{ d.order_time | fmt_dt }}</td>
+            <td>{{ d.pickup_time | fmt_dt }}</td>
+            <td>{{ d.delivery_time | fmt_dt }}</td>
             <td>{{ d.rating if d.rating is not none else '—' }}</td>
             <td>
                 <a href="/manager/dostave?edit_id={{ d.id }}" class="btn">Izmeni</a>

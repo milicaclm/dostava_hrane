@@ -70,7 +70,7 @@
         <tr>
             <td>{{ v.id }}</td>
             <td>{{ v.license_plate or '—' }}</td>
-            <td>{{ v.type }}</td>
+            <td>{{ v.type | fmt_vehicle }}</td>
             <td>{{ v.brand or '—' }}</td>
             <td>{{ v.model or '—' }}</td>
             <td>{{ v.color or '—' }}</td>

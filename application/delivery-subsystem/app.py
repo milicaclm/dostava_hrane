@@ -13,6 +13,33 @@ from db import driver, redis_client, influx_client
 
 app = Flask(__name__)
 
+@app.template_filter('fmt_dt')
+def fmt_dt_filter(val):
+    if not val:
+        return '—'
+    s = str(val).replace('T', ' ')
+    try:
+        date_part, time_part = s[:10], s[11:16]
+        y, m, d = date_part.split('-')
+        return f"{d}.{m}.{y} {time_part}"
+    except Exception:
+        return s[:16]
+
+@app.template_filter('fmt_status')
+def fmt_status_filter(val):
+    return {
+        'placed': 'Kreirana', 'offered': 'Ponuđena', 'pending': 'Na čekanju',
+        'accepted': 'Prihvaćena', 'in transit': 'U dostavi',
+        'completed': 'Isporučena', 'cancelled': 'Otkazana',
+    }.get(str(val).lower(), val or '—')
+
+@app.template_filter('fmt_vehicle')
+def fmt_vehicle_filter(val):
+    return {
+        'bicycle': 'Bicikl', 'bike': 'Bicikl',
+        'motorcycle': 'Motor', 'scooter': 'Skuter', 'car': 'Automobil',
+    }.get(str(val).lower(), val or '—')
+
 app.config['JWT_SECRET_KEY'] = 'dev-secret-key'
 jwt = JWTManager(app)
 

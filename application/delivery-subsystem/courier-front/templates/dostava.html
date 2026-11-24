@@ -2,14 +2,23 @@
 {% block title %}Aktivna dostava{% endblock %}
 {% block content %}
 <p><a href="/courier/smena" class="btn">&larr; Nazad na smenu</a></p>
-<h1>Dostava {{ delivery.id }} — {{ delivery.status }}</h1>
+<h1>Dostava {{ delivery.id }} — {{ delivery.status | fmt_status }}</h1>
 
 <div class="card">
     <p><strong>Restoran:</strong> {{ delivery.from_location }}</p>
     <p><strong>Kupac:</strong> {{ delivery.to_location }}</p>
-    <p><strong>Vreme narudžbine:</strong> {{ delivery.order_time or '—' }}</p>
-    <p><strong>Preuzeto:</strong> {{ delivery.pickup_time or '—' }}</p>
-    <p><strong>Isporučeno:</strong> {{ delivery.delivery_time or '—' }}</p>
+    <p><strong>Vreme narudžbine:</strong> {{ delivery.order_time | fmt_dt }}</p>
+    <p><strong>Preuzeto:</strong> {{ delivery.pickup_time | fmt_dt }}</p>
+    <p><strong>Isporučeno:</strong> {{ delivery.delivery_time | fmt_dt }}</p>
+</div>
+
+<div class="card">
+    <h2>Lokacija na mapi</h2>
+    {% set lat = (position.lat if position and position.lat is not none else 45.25) | float %}
+    {% set lon = (position.lon if position and position.lon is not none else 19.83) | float %}
+    <iframe width="100%" height="320" style="border: 1px solid #000;"
+        src="https://www.openstreetmap.org/export/embed.html?bbox={{ lon - 0.01 }}%2C{{ lat - 0.01 }}%2C{{ lon + 0.01 }}%2C{{ lat + 0.01 }}&amp;layer=mapnik&amp;marker={{ lat }}%2C{{ lon }}">
+    </iframe>
 </div>
 
 <div class="card">
