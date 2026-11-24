@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Menadžer Panel{% endblock %}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: sans-serif; display: flex; min-height: 100vh; color: #000; background: #fff; }
+        .sidebar { width: 220px; border-right: 1px solid #000; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; background: #f8f8f8; }
+        .sidebar nav a { display: block; padding: 8px 10px; margin-bottom: 6px; text-decoration: none; color: #000; border: 1px solid transparent; }
+        .sidebar nav a.active, .sidebar nav a:hover { border-color: #000; background: #fff; font-weight: bold; }
+        .profile { border-top: 1px solid #ccc; padding-top: 12px; font-size: 0.9rem; }
+        .profile .email { color: #555; font-size: 0.8rem; margin-bottom: 8px; }
+        .main { flex: 1; padding: 20px; overflow-x: auto; }
+        h1, h2 { margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
+        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+        th { background: #eee; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+        input, select { padding: 6px 8px; border: 1px solid #000; font-size: 0.9rem; }
+        button, .btn { padding: 6px 12px; border: 1px solid #000; background: #fff; color: #000; cursor: pointer; text-decoration: none; font-size: 0.9rem; display: inline-block; }
+        button:hover, .btn:hover { background: #eee; }
+        .card { border: 1px solid #000; padding: 14px; margin-bottom: 16px; background: #fafafa; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .field label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 3px; }
+        .field input, .field select { width: 100%; }
+        .err { color: #b00; font-weight: bold; margin-bottom: 10px; }
+        .ok { color: #060; font-weight: bold; margin-bottom: 10px; }
+        form.inline { display: inline; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <nav>
+            <a href="/manager/dostavljaci" class="{{ 'active' if active_page == 'dostavljaci' }}">Dostavljači</a>
+            <a href="/manager/dostave" class="{{ 'active' if active_page == 'dostave' }}">Dostave</a>
+            <a href="/manager/vozila" class="{{ 'active' if active_page == 'vozila' }}">Vozila</a>
+            <a href="/manager/parametri" class="{{ 'active' if active_page == 'parametri' }}">Parametri</a>
+        </nav>
+        <div class="profile">
+            <div><strong>{{ manager.name }} {{ manager.surname }}</strong></div>
+            <div class="email">{{ manager.email }}</div>
+            <a href="/logout" class="btn">Odjavi se</a>
+        </div>
+    </aside>
+    <main class="main">
+        {% if error %}<div class="err">{{ error }}</div>{% endif %}
+        {% if message %}<div class="ok">{{ message }}</div>{% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

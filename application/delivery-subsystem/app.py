@@ -1,11 +1,13 @@
 import os
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager
 from delivery import delivery_bp
 from location import location_bp
 from analytics import analytics_bp
 from user import user_bp
 from resource import resource_bp
+from scheduler import scheduler_bp
+from front_routes import manager_front_bp, courier_front_bp
 from db import driver, redis_client, influx_client
 
 
@@ -19,28 +21,12 @@ def hello():
     return jsonify({"status": "Delivery Subsystem is running"}), 200
 
 
-@app.route('/manager/')
-def serve_manager_index():
-    return send_from_directory('delivery-manager-front/templates', 'index.html')
-
-@app.route('/manager/<path:path>')
-def serve_manager_files(path):
-    if path.startswith('static/'):
-        return send_from_directory('delivery-manager-front', path)
-    return send_from_directory('delivery-manager-front/templates', path)
-
-@app.route('/courier/')
-def serve_courier_index():
-    return send_from_directory('courier-front/templates', 'index.html')
-
-@app.route('/courier/<path:path>')
-def serve_courier_files(path):
-    if path.startswith('static/'):
-        return send_from_directory('courier-front', path)
-    return send_from_directory('courier-front/templates', path)
+app.register_blueprint(manager_front_bp, url_prefix='/manager')
+app.register_blueprint(courier_front_bp, url_prefix='/courier')
 
 
 app.register_blueprint(delivery_bp, url_prefix='/deliveries')
+app.register_blueprint(scheduler_bp, url_prefix='/scheduler')
 app.register_blueprint(location_bp, url_prefix='/locations')
 app.register_blueprint(analytics_bp, url_prefix='/analytics')
 app.register_blueprint(user_bp, url_prefix='/users')

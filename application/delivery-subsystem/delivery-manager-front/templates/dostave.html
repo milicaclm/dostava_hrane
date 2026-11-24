@@ -1,427 +1,103 @@
-<!DOCTYPE html>
-<html lang="sr">
+{% extends "manager_base.html" %}
+{% block title %}Dostave{% endblock %}
+{% block content %}
+<h1>Dostave</h1>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dostave</title>
-    <style>
-        body { font-family: sans-serif; margin: 20px; color: #333; background: #fff; }
-        h1 { text-align: center; margin-bottom: 20px; }
-        .controls { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .search-box { padding: 8px; width: 250px; border: 1px solid #ccc; font-size: 14px; }
-        .search-group { display: flex; gap: 10px; align-items: center; }
-        button { padding: 8px 12px; cursor: pointer; font-size: 14px; border: 1px solid #ccc; background: #eee; color: black; }
-        button:hover { background: #ddd; }
-        .btn-add { background: #dfd; color: #060; font-weight: bold; }
-        .btn-add:hover { background: #ced; }
-        .btn-edit { background: #ffe; }
-        .btn-delete { background: #fdd; color: #600; }
-        .toggle-container { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: bold; }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border: 1px solid #000; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; border: 1px solid #000; }
-        input:checked + .slider { background-color: #000; }
-        input:checked + .slider:before { transform: translateX(20px); }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
-        th { background-color: #eee; font-weight: bold; }
-        th.sortable { cursor: pointer; }
-        .advanced-search-panel { background-color: #fafafa; border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; }
-        .search-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-        .search-field { display: flex; flex-direction: column; gap: 5px; }
-        .search-field label { font-size: 12px; font-weight: bold; }
-        .search-field input, .search-field select { padding: 5px; border: 1px solid #ccc; }
-        .radio-group { display: flex; gap: 10px; align-items: center; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); }
-        .modal-content { background: white; margin: 15% auto; padding: 20px; border: 1px solid #ccc; width: 350px; }
-        .modal-header { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
-        .form-group { margin-bottom: 10px; }
-        .form-group label { display: block; margin-bottom: 2px; font-size: 12px; }
-        .form-group input, .form-group select { width: 100%; padding: 6px; border: 1px solid #ccc; box-sizing: border-box; }
-    </style>
-</head>
+<form method="GET" action="/manager/dostave" class="row">
+    <input type="text" name="q" value="{{ q }}" placeholder="Pretraži po ID ili adresi...">
+    <select name="status">
+        <option value="">Svi statusi</option>
+        <option value="placed" {{ 'selected' if status_filter == 'placed' }}>placed</option>
+        <option value="offered" {{ 'selected' if status_filter == 'offered' }}>offered</option>
+        <option value="accepted" {{ 'selected' if status_filter == 'accepted' }}>accepted</option>
+        <option value="in transit" {{ 'selected' if status_filter == 'in transit' }}>in transit</option>
+        <option value="completed" {{ 'selected' if status_filter == 'completed' }}>completed</option>
+        <option value="cancelled" {{ 'selected' if status_filter == 'cancelled' }}>cancelled</option>
+    </select>
+    <button type="submit">Filtriraj</button>
+    {% if q or status_filter %}<a href="/manager/dostave" class="btn">Resetuj</a>{% endif %}
+</form>
 
-<body>
-
-    <h1>Dostave</h1>
-
-    <div class="controls">
-        <div class="search-group">
-            <input type="text" class="search-box" id="search-basic" placeholder="Pretraži id dostave...">
-            <button class="btn-advanced" onclick="toggleAdvancedSearch()">Napredna pretraga</button>
-        </div>
-        <div style="display: flex; gap: 20px; align-items: center;">
-            <div class="toggle-container">
-                <span>Aktivne dostave</span>
-                <label class="switch">
-                    <input type="checkbox" id="active-deliveries-toggle"> 
-                    <span class="slider"></span>
-                </label>
+<div class="card">
+    <h2>{{ 'Izmeni dostavu: ' ~ edit_delivery.id if edit_delivery else 'Nova dostava' }}</h2>
+    <form method="POST" action="/manager/dostave">
+        <input type="hidden" name="action" value="{{ 'update' if edit_delivery else 'create' }}">
+        <div class="grid">
+            <div class="field">
+                <label>ID</label>
+                <input type="text" name="id" value="{{ edit_delivery.id if edit_delivery else '' }}" {{ 'readonly' if edit_delivery else 'required' }}>
             </div>
-            <button class="btn-add" onclick="openAddModal()">+ Kreiraj dostavu</button>
-        </div>
-    </div>
-
-    
-    <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
-        <div class="search-grid">
-            <div class="search-field">
-                <label for="filter-id">ID Dostave:</label>
-                <input type="text" id="filter-id" placeholder="Npr. del-1">
+            <div class="field">
+                <label>Od (Restoran)</label>
+                <input type="text" name="from_location" value="{{ edit_delivery.from_location if edit_delivery else '' }}" required>
             </div>
-            <div class="search-field">
-                <label for="filter-from">Od (Restoran):</label>
-                <input type="text" id="filter-from" placeholder="Npr. Restoran 1">
+            <div class="field">
+                <label>Do (Kupac)</label>
+                <input type="text" name="to_location" value="{{ edit_delivery.to_location if edit_delivery else '' }}" required>
             </div>
-            <div class="search-field">
-                <label for="filter-to">Do (Kupac):</label>
-                <input type="text" id="filter-to" placeholder="Npr. Adresa 1">
+            <div class="field">
+                <label>Restoran Lat</label>
+                <input type="number" step="any" name="restaurant_lat" value="{{ edit_delivery.restaurant_lat if edit_delivery and edit_delivery.restaurant_lat is not none else '' }}">
             </div>
-            <div class="search-field">
-                <label for="filter-courier">Dostavljač:</label>
-                <input type="text" id="filter-courier" placeholder="Npr. user-del-1">
+            <div class="field">
+                <label>Restoran Lon</label>
+                <input type="number" step="any" name="restaurant_lon" value="{{ edit_delivery.restaurant_lon if edit_delivery and edit_delivery.restaurant_lon is not none else '' }}">
             </div>
-            <div class="search-field">
-                <label for="filter-status">Status:</label>
-                <select id="filter-status">
-                    <option value="">Svi statusi</option>
-                    <option value="pending">pending</option>
-                    <option value="accepted">accepted</option>
-                    <option value="rejected">rejected</option>
-                    <option value="in_transit">in_transit</option>
-                    <option value="completed">completed</option>
-                    <option value="cancelled">cancelled</option>
-                </select>
+            <div class="field">
+                <label>Kupac Lat</label>
+                <input type="number" step="any" name="customer_lat" value="{{ edit_delivery.customer_lat if edit_delivery and edit_delivery.customer_lat is not none else '' }}">
             </div>
-            <div class="search-field">
-                <label for="filter-rating">Ocena:</label>
-                <select id="filter-rating">
-                    <option value="">Sve ocene</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="none">Nije ocenjeno</option>
-                </select>
+            <div class="field">
+                <label>Kupac Lon</label>
+                <input type="number" step="any" name="customer_lon" value="{{ edit_delivery.customer_lon if edit_delivery and edit_delivery.customer_lon is not none else '' }}">
+            </div>
+            <div class="field">
+                <label>Ocena</label>
+                <input type="number" step="0.1" name="rating" value="{{ edit_delivery.rating if edit_delivery else 0 }}">
             </div>
         </div>
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
-            <button class="btn-clear" onclick="clearFilters()">Očisti filtere</button>
-        </div>
-    </div>
+        <button type="submit">{{ 'Sačuvaj izmene' if edit_delivery else '+ Dodaj dostavu' }}</button>
+        {% if edit_delivery %}<a href="/manager/dostave" class="btn">Otkaži</a>{% endif %}
+    </form>
+</div>
 
-    <table>
-        <thead>
-            <tr>
-                <th class="sortable" title="Klikni za sortiranje">ID</th>
-                <th class="sortable" title="Klikni za sortiranje">Od (Restoran)</th>
-                <th class="sortable" title="Klikni za sortiranje">Do (Kupac)</th>
-                <th class="sortable" title="Klikni za sortiranje">Dostavljač</th>
-                <th class="sortable" title="Klikni za sortiranje">Vreme početka</th>
-                <th class="sortable" title="Klikni za sortiranje">Vreme preuzimanja</th>
-                <th class="sortable" title="Klikni za sortiranje">Vreme dostavljanja</th>
-                <th class="sortable" title="Klikni za sortiranje">Status</th>
-                <th class="sortable" title="Klikni za sortiranje">Ocena</th>
-                <th>Akcije</th>
-            </tr>
-        </thead>
-        <tbody>
-            
-        </tbody>
-    </table>
-
-    
-    <div id="addModal" class="modal">
-        <div class="modal-content">
-            <div id="modalTitle" class="modal-header">Nova dostava</div>
-            <div class="form-group">
-                <label>ID Dostave:</label>
-                <input type="text" id="add-id" placeholder="npr. del-10">
-            </div>
-            <div class="form-group">
-                <label>Lokacija restorana:</label>
-                <input type="text" id="add-from">
-            </div>
-            <div class="form-group">
-                <label>Lokacija kupca:</label>
-                <input type="text" id="add-to">
-            </div>
-            <div class="form-group">
-                <label>Status:</label>
-                <input type="text" id="add-status" value="pending">
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button class="btn-edit" onclick="closeModal()">Otkaži</button>
-                <button id="btnSave" class="btn-add" onclick="submitDelivery()">Sačuvaj</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const API_BASE_DELIVERIES = 'http://localhost:8000/api/delivery-subsystem/deliveries';
-
-        let isEditMode = false;
-        let allDeliveries = [];
-
-        function toggleAdvancedSearch() {
-            const panel = document.getElementById('advanced-search-panel');
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block';
-            } else {
-                panel.style.display = 'none';
-            }
-        }
-
-        function clearFilters() {
-            document.getElementById('search-basic').value = '';
-            document.getElementById('filter-id').value = '';
-            document.getElementById('filter-from').value = '';
-            document.getElementById('filter-to').value = '';
-            document.getElementById('filter-courier').value = '';
-            document.getElementById('filter-status').value = '';
-            document.getElementById('filter-rating').value = '';
-            document.getElementById('active-deliveries-toggle').checked = false;
-            applyFilters();
-        }
-
-        function applyFilters() {
-            const basicSearch = document.getElementById('search-basic').value.trim().toLowerCase();
-            const filterId = document.getElementById('filter-id').value.trim().toLowerCase();
-            const filterFrom = document.getElementById('filter-from').value.trim().toLowerCase();
-            const filterTo = document.getElementById('filter-to').value.trim().toLowerCase();
-            const filterCourier = document.getElementById('filter-courier').value.trim().toLowerCase();
-            const filterStatus = document.getElementById('filter-status').value;
-            const filterRating = document.getElementById('filter-rating').value;
-            const activeOnly = document.getElementById('active-deliveries-toggle').checked;
-
-            const filtered = allDeliveries.filter(delivery => {
-                if (activeOnly && (delivery.status === 'completed' || delivery.status === 'cancelled')) {
-                    return false;
-                }
-                if (basicSearch && !(delivery.id && delivery.id.toLowerCase().includes(basicSearch))) {
-                    return false;
-                }
-                if (filterId && !(delivery.id && delivery.id.toLowerCase().includes(filterId))) {
-                    return false;
-                }
-                if (filterFrom && !(delivery.from_location && delivery.from_location.toLowerCase().includes(filterFrom))) {
-                    return false;
-                }
-                if (filterTo && !(delivery.to_location && delivery.to_location.toLowerCase().includes(filterTo))) {
-                    return false;
-                }
-                if (filterCourier) {
-                    const courierVal = delivery.courier || 'Nije dodeljen';
-                    if (!courierVal.toLowerCase().includes(filterCourier)) {
-                        return false;
-                    }
-                }
-                if (filterStatus && delivery.status !== filterStatus) {
-                    return false;
-                }
-                if (filterRating) {
-                    if (filterRating === 'none') {
-                        if (delivery.rating && delivery.rating !== 0) {
-                            return false;
-                        }
-                    } else {
-                        if (String(delivery.rating) !== filterRating) {
-                            return false;
-                        }
-                    }
-                }
-                return true;
-            });
-
-            renderDeliveries(filtered);
-        }
-
-        function renderDeliveries(deliveriesList) {
-            const tbody = document.querySelector('tbody');
-            tbody.innerHTML = '';
-
-            if (deliveriesList) {
-                deliveriesList.forEach(delivery => {
-                    const tr = document.createElement('tr');
-                    const fmtTime = (t) => t && t !== 'None' ? t.replace('T', ' ').substring(0, 16) : '/';
-
-                    tr.innerHTML = `
-                        <td>${delivery.id}</td>
-                        <td>${delivery.from_location || '/'}</td>
-                        <td>${delivery.to_location || '/'}</td>
-                        <td>${delivery.courier || 'Nije dodeljen'}</td>
-                        <td>${fmtTime(delivery.start_time)}</td>
-                        <td>${fmtTime(delivery.pickup_time)}</td>
-                        <td>${fmtTime(delivery.delivery_time)}</td>
-                        <td><strong>${delivery.status}</strong></td>
-                        <td>${delivery.rating || '/'}</td>
-                        <td>
-                            <button class="btn-edit" onclick="editDelivery('${delivery.id}')">Izmeni</button>
-                            <button class="btn-delete" onclick="deleteDelivery('${delivery.id}')">Obriši</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-        }
-
-        async function loadDeliveries() {
-            const token = localStorage.getItem('jwt_token');
-            try {
-                const response = await fetch(API_BASE_DELIVERIES + '/', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                const data = await response.json();
-                
-                if (Array.isArray(data)) {
-                    allDeliveries = data;
-                } else {
-                    allDeliveries = [];
-                }
-                applyFilters();
-            } catch (error) {
-                console.error('Greška pri učitavanju dostava:', error);
-            }
-        }
-
-        function openAddModal() {
-            isEditMode = false;
-            document.getElementById('modalTitle').innerText = 'Nova dostava';
-            document.getElementById('add-id').value = '';
-            document.getElementById('add-id').readOnly = false;
-            document.getElementById('add-from').value = '';
-            document.getElementById('add-to').value = '';
-            document.getElementById('add-status').value = 'pending';
-            document.getElementById('addModal').style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('addModal').style.display = 'none';
-        }
-
-        async function submitDelivery() {
-            const id = document.getElementById('add-id').value;
-            const from_location = document.getElementById('add-from').value;
-            const to_location = document.getElementById('add-to').value;
-            const status = document.getElementById('add-status').value;
-            const rating = 0;
-
-            if (!id) return;
-            
-            const url = isEditMode ? `${API_BASE_DELIVERIES}/${id}` : API_BASE_DELIVERIES + '/';
-            const method = isEditMode ? 'PUT' : 'POST';
-            const payload = isEditMode ? { status, from_location, to_location } : { id, status, from_location, to_location, order_time: new Date().toISOString(), rating };
-
-            const token = localStorage.getItem('jwt_token');
-            try {
-                await fetch(url, {
-                    method: method,
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(payload)
-                });
-                closeModal();
-                loadDeliveries();
-            } catch (e) { console.error(e); }
-        }
-
-        async function deleteDelivery(id) {
-            if (!confirm('Da li ste sigurni da želite da obrišete ovu dostavu?')) return;
-            const token = localStorage.getItem('jwt_token');
-            try {
-                await fetch(`${API_BASE_DELIVERIES}/${id}`, { 
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                loadDeliveries();
-            } catch (e) { console.error(e); }
-        }
-
-        async function editDelivery(id) {
-            isEditMode = true;
-            const token = localStorage.getItem('jwt_token');
-            try {
-                const resp = await fetch(`${API_BASE_DELIVERIES}/${id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                const d = await resp.json();
-                document.getElementById('modalTitle').innerText = 'Izmena dostave';
-                document.getElementById('add-id').value = d.id;
-                document.getElementById('add-id').readOnly = true;
-                document.getElementById('add-from').value = d.from_location || '';
-                document.getElementById('add-to').value = d.to_location || '';
-                document.getElementById('add-status').value = d.status || '';
-                document.getElementById('addModal').style.display = 'block';
-            } catch (e) { console.error(e); }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDeliveries(); 
-            
-            
-            setInterval(loadDeliveries, 5000);
-
-            
-            document.getElementById('search-basic').addEventListener('input', applyFilters);
-            document.getElementById('filter-id').addEventListener('input', applyFilters);
-            document.getElementById('filter-from').addEventListener('input', applyFilters);
-            document.getElementById('filter-to').addEventListener('input', applyFilters);
-            document.getElementById('filter-courier').addEventListener('input', applyFilters);
-            document.getElementById('filter-status').addEventListener('change', applyFilters);
-            document.getElementById('filter-rating').addEventListener('change', applyFilters);
-            document.getElementById('active-deliveries-toggle').addEventListener('change', applyFilters);
-
-            document.querySelectorAll('th.sortable').forEach(th => {
-                let asc = true;
-                th.addEventListener('click', () => {
-                    const table = th.closest('table');
-                    const tbody = table.querySelector('tbody');
-                    const index = Array.from(th.parentNode.children).indexOf(th);
-
-                    
-                    table.querySelectorAll('th.sortable').forEach(header => {
-                        if (header !== th) header.classList.remove('asc', 'desc');
-                    });
-
-                    
-                    if (asc) {
-                        th.classList.remove('desc');
-                        th.classList.add('asc');
-                    } else {
-                        th.classList.remove('asc');
-                        th.classList.add('desc');
-                    }
-
-                    const rows = Array.from(tbody.querySelectorAll('tr'));
-                    rows.sort((a, b) => {
-                        const valA = a.children[index].innerText.trim();
-                        const valB = b.children[index].innerText.trim();
-
-                        
-                        if (!isNaN(valA) && !isNaN(valB) && valA !== '' && valB !== '') {
-                            return asc ? valA - valB : valB - valA;
-                        } else {
-                            return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                        }
-                    });
-
-                    asc = !asc;
-                    rows.forEach(tr => tbody.appendChild(tr));
-                });
-            });
-        });
-    </script>
-</body>
-
-</html>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Od</th>
+            <th>Do</th>
+            <th>Vreme narudžbine</th>
+            <th>Preuzeto</th>
+            <th>Isporučeno</th>
+            <th>Ocena</th>
+            <th>Akcije</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in deliveries %}
+        <tr>
+            <td>{{ d.id }}</td>
+            <td>{{ d.status }}</td>
+            <td>{{ d.from_location }}</td>
+            <td>{{ d.to_location }}</td>
+            <td>{{ d.order_time or '—' }}</td>
+            <td>{{ d.pickup_time or '—' }}</td>
+            <td>{{ d.delivery_time or '—' }}</td>
+            <td>{{ d.rating if d.rating is not none else '—' }}</td>
+            <td>
+                <a href="/manager/dostave?edit_id={{ d.id }}" class="btn">Izmeni</a>
+                <form method="POST" action="/manager/dostave" class="inline">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="{{ d.id }}">
+                    <button type="submit">Obriši</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9">Nema dostava.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

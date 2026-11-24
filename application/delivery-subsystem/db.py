@@ -1,4 +1,7 @@
 import os
+import json
+from functools import wraps
+from flask import request, jsonify, Response
 from redis import Redis
 from neo4j import GraphDatabase
 from influxdb_client import InfluxDBClient
@@ -14,9 +17,11 @@ redis_client = Redis(
     decode_responses=True
 )
 
-import json
-from functools import wraps
-from flask import request, jsonify, Response
+
+def get_user_role(session, user_id):
+    record = session.run("MATCH (u:User {id: $user_id}) RETURN u.account_type AS role", user_id=user_id).single()
+    return record["role"] if record else None
+
 
 def redis_cache(key_prefix, ttl=300):
     def decorator(func):

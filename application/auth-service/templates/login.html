@@ -5,135 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prijava</title>
     <style>
-        body {
-            font-family: sans-serif;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-
-        .content-block {
-            width: 320px;
-            padding: 20px;
-            border: 1px solid #000000;
-            background-color: #ffffff;
-            text-align: center;
-            box-sizing: border-box;
-        }
-
-        h1 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            color: #000000;
-            font-size: 1.8em;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-            text-align: left;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #000000;
-            background-color: #ffffff;
-            color: #000000;
-            box-sizing: border-box;
-        }
-
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #ffffff;
-            color: #000000;
-            border: 1px solid #000000;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-        }
-
-        .message {
-            margin-top: 15px;
-            text-align: center;
-            font-size: 14px;
-            min-height: 20px;
-        }
+        body { font-family: sans-serif; margin: 0; height: 100vh; display: flex; justify-content: center; align-items: center; background: #fff; color: #000; }
+        .box { width: 300px; padding: 20px; border: 1px solid #000; }
+        h1 { margin: 0 0 16px 0; font-size: 1.5rem; text-align: center; }
+        .field { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.9rem; }
+        input { width: 100%; padding: 8px; border: 1px solid #000; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #fff; color: #000; border: 1px solid #000; font-weight: bold; cursor: pointer; }
+        button:hover { background: #eee; }
+        .error { margin-top: 12px; color: #b00; font-size: 0.9rem; text-align: center; }
     </style>
 </head>
 <body>
-    <div class="content-block">
+    <div class="box">
         <h1>Prijava</h1>
-        <form id="login-form">
-            <div class="form-group">
+        <form method="POST" action="/">
+            <div class="field">
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email" required>
             </div>
-            <div class="form-group">
+            <div class="field">
                 <label for="password">Lozinka</label>
                 <input type="password" id="password" name="password" required>
             </div>
             <button type="submit">Prijavi se</button>
-            <p id="message" class="message"></p>
+            {% if error %}
+            <p class="error">{{ error }}</p>
+            {% endif %}
         </form>
     </div>
-
-    <script>
-        document.getElementById('login-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const messageElement = document.getElementById('message');
-
-            const loginUrl = '/api/auth-service/auth/login';
-
-            try {
-                const response = await fetch(loginUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    localStorage.setItem('jwt_token', data.access_token);
-
-                    const payload = JSON.parse(atob(data.access_token.split('.')[1]));
-                    const userType = payload.account_type;
-
-                    messageElement.textContent = 'Uspešna prijava! Preusmeravanje...';
-                    messageElement.style.color = 'green';
-
-                    if (userType === 'manager') {
-                        window.location.href = '/manager/';
-                    } else if (userType === 'courier') {
-                        window.location.href = '/courier/';
-                    } else {
-                        messageElement.textContent = 'Tip naloga nije podržan za preusmeravanje.';
-                        messageElement.style.color = 'orange';
-                    }
-
-                } else {
-                    messageElement.textContent = data.error || 'Prijava nije uspela.';
-                    messageElement.style.color = 'red';
-                }
-            } catch (error) {
-                console.error('Detalji greške (Network/CORS):', error);
-                messageElement.textContent = 'Došlo je do greške. Proverite konekciju.';
-                messageElement.style.color = 'red';
-            }
-        });
-    </script>
 </body>
 </html>

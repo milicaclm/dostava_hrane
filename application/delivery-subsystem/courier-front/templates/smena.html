@@ -1,494 +1,70 @@
-<!DOCTYPE html>
-<html lang="sr">
+{% extends "courier_base.html" %}
+{% block title %}Smena - Dostavljač{% endblock %}
+{% block content %}
+<h1>Smena</h1>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smena - Dostavljač</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        body { font-family: sans-serif; margin: 20px; }
-        .container { max-width: 600px; margin: auto; }
-        #map { width: 100%; height: 250px; margin-top: 10px; border: 1px solid #ccc; }
-        button, .btn-action { padding: 10px 15px; margin: 5px; font-size: 16px; cursor: pointer; display: inline-block; text-decoration: none; color: black; background: #eee; border: 1px solid #ccc; }
-        button:hover, .btn-action:hover { background: #ddd; }
-        .status-badge { padding: 5px; border: 1px solid #ccc; display: inline-block; margin-bottom: 15px; }
-        .status-badge.on { background: #dfd; color: #060; }
-        .status-badge.off { background: #fdd; color: #600; }
-        .offer-card { padding: 15px; border: 1px solid #ddd; margin-top: 10px; background: #fafafa; }
-        .detail-row { margin-bottom: 5px; }
-        .hidden { display: none !important; }
-    </style>
-</head>
+<div class="badge {{ 'on' if is_active else 'off' }}">
+    {{ 'Smena je aktivna' if is_active else 'Smena nije započeta' }}
+</div>
 
-<body>
+<div class="card">
+    {% if not is_active %}
+    <p>Aktivirajte smenu kako biste mogli da primate ponude za dostave.</p>
+    <form method="POST" action="/courier/smena">
+        <input type="hidden" name="action" value="start_shift">
+        <button type="submit">Započni smenu</button>
+    </form>
+    {% else %}
+    <form method="POST" action="/courier/smena">
+        <input type="hidden" name="action" value="end_shift">
+        <button type="submit">Završi smenu</button>
+    </form>
+    {% endif %}
+</div>
 
-    <div class="container">
-        
-        <div id="status-container">
-            <div id="status-badge" class="status-badge off">
-                <span class="dot"></span>
-                <span id="status-text">Smena nije započeta</span>
-            </div>
-        </div>
+{% if is_active %}
+<div class="card">
+    <h2>Vaša lokacija</h2>
+    <form method="POST" action="/courier/smena" class="row">
+        <input type="hidden" name="action" value="set_location">
+        <label>Lat: <input type="number" step="any" name="lat" value="{{ position.lat if position and position.lat is not none else 45.25 }}" required></label>
+        <label>Lon: <input type="number" step="any" name="lon" value="{{ position.lon if position and position.lon is not none else 19.83 }}" required></label>
+        <button type="submit">Sačuvaj lokaciju</button>
+    </form>
+</div>
 
-        <div id="start-shift-view">
-            <h1>Započni smenu</h1>
-            <p class="subtitle">Aktivirajte smenu kako biste počeli da primate ponude za dostave.</p>
-            <button class="btn btn-start" id="btn-start-shift">Započni smenu</button>
-        </div>
+{% if active_delivery %}
+<div class="card">
+    <h2>Aktivna dostava</h2>
+    <p><strong>ID:</strong> {{ active_delivery.id }} | <strong>Status:</strong> {{ active_delivery.status }}</p>
+    <p><strong>Od:</strong> {{ active_delivery.from_location }} &rarr; <strong>Do:</strong> {{ active_delivery.to_location }}</p>
+    <a href="/courier/dostava?id={{ active_delivery.id }}" class="btn">Otvori aktivnu dostavu</a>
+</div>
+{% endif %}
 
-        <div id="active-shift-view" class="hidden">
-            <h1>Smena je aktivna</h1>
-            <p class="subtitle">Dostupni ste na mapi i sistem vam može dodeliti nove porudžbine.</p>
-            <button class="btn btn-end" id="btn-end-shift">Završi smenu</button>
-
-            
-            <div id="map-container" class="hidden" style="margin-top: 20px; text-align: left; border-top: 2px solid #000000; padding-top: 15px;">
-                <h2 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 12px; color: #000000;">
-                    Vaša lokacija
-                </h2>
-                <div id="map" style="height: 250px; width: 100%; border: 2px solid #000000;"></div>
-                <div id="map-hint" style="color: #d97706; margin-top: 8px; font-size: 0.85rem; font-weight: bold;">
-                    📍 Klikni na mapu da označiš svoju trenutnu lokaciju
-                </div>
-            </div>
-
-            
-            <div class="offers-section">
-                <h2>
-                    Ponuđene dostave
-                    <span id="offers-count" style="font-size: 0.9rem; background: #e2e8f0; padding: 4px 10px; border-radius: 9999px; font-weight: normal; color: #475569;">0</span>
-                </h2>
-                <div id="offers-list-container" class="offers-list">
-                    
-                </div>
-            </div>
-        </div>
+<div class="card">
+    <div class="row" style="justify-content: space-between;">
+        <h2 style="margin: 0;">Ponuđene dostave ({{ offers | length }})</h2>
+        <a href="/courier/smena" class="btn">Osveži</a>
     </div>
-
-    <script>
-        const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
-        const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
-        const API_LOCATIONS_URL = 'http://localhost:8000/api/delivery-subsystem/locations';
-
-        let pollingInterval = null;
-        let trackingInterval = null;
-        let activeDeliveryId = null;  
-        let map = null;
-        let courierMarker = null;
-
-        function getToken() {
-            return localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
-        }
-
-        function getUserId() {
-            const token = getToken();
-            return token ? getUserIdFromToken(token) : null;
-        }
-
-        function initMap() {
-            const mapContainer = document.getElementById('map-container');
-            mapContainer.classList.remove('hidden');
-            if (!map) {
-                map = L.map('map', { zoomControl: true }).setView([45.25, 19.83], 14);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap',
-                    maxZoom: 19
-                }).addTo(map);
-
-                map.on('click', function (e) {
-                    placeCourierMarker(e.latlng.lat, e.latlng.lng, true);
-                });
-            } else {
-                map.invalidateSize();
-            }
-        }
-
-        function hideMap() {
-            document.getElementById('map-container').classList.add('hidden');
-        }
-
-        function placeCourierMarker(lat, lon, fromClick = false) {
-            if (courierMarker) {
-                courierMarker.setLatLng([lat, lon]);
-            } else {
-                courierMarker = L.marker([lat, lon])
-                    .bindPopup('<b>Ti si ovde</b>')
-                    .addTo(map);
-            }
-
-            if (fromClick) {
-                document.getElementById('map-hint').innerText = '📍 Lokacija zabeležena!';
-                setTimeout(() => {
-                    const hintEl = document.getElementById('map-hint');
-                    if (hintEl) hintEl.innerText = '📍 Klikni na mapu da promeniš svoju lokaciju';
-                }, 3000);
-                saveLocationToServer(lat, lon);
-            }
-        }
-
-        async function saveLocationToServer(lat, lon) {
-            const userId = getUserId();
-            if (!userId) return;
-            try {
-                await fetch(`${API_LOCATIONS_URL}/set_position?user_id=${userId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${getToken()}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ lat, lon })
-                });
-            } catch (e) {
-                console.warn('Greška pri čuvanju lokacije:', e);
-            }
-        }
-
-        function startPositionPolling() {
-            const userId = getUserId();
-            if (!userId || trackingInterval) return;
-            
-            let firstTime = true;
-            
-            const fetchPos = async () => {
-                try {
-                    const res = await fetch(`${API_LOCATIONS_URL}/current_position?user_id=${userId}`, {
-                        headers: { 'Authorization': `Bearer ${getToken()}` }
-                    });
-                    if (!res.ok) return;
-                    const pos = await res.json();
-                    if (!pos || pos.lat == null || pos.lon == null) return;
-                    placeCourierMarker(parseFloat(pos.lat), parseFloat(pos.lon), false);
-                    if (firstTime && map) {
-                        map.setView([parseFloat(pos.lat), parseFloat(pos.lon)], 14);
-                        firstTime = false;
-                    }
-                } catch (e) { console.warn(e); }
-            };
-            fetchPos();
-            trackingInterval = setInterval(fetchPos, 1000);
-        }
-
-        function getUserIdFromToken(token) {
-            try {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload).sub;
-            } catch (e) {
-                console.error("Greška pri dekodiranju tokena:", e);
-                return null;
-            }
-        }
-
-        async function initPage() {
-            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
-            if (!token) {
-                alert('Niste prijavljeni! Preusmeravanje...');
-                window.top.location.href = '/';
-                return;
-            }
-            const userId = getUserIdFromToken(token);
-            if (!userId) {
-                alert('Nevalidna sesija!');
-                return;
-            }
-
-            
-            try {
-                const response = await fetch(`${API_USERS_URL}/${userId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                if (response.status === 401) {
-                    window.top.location.href = '/';
-                    return;
-                }
-                if (response.ok) {
-                    const user = await response.json();
-                    
-                    
-                    const activeRes = await fetch(`${API_DELIVERIES_URL}/active`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (activeRes.status === 401) {
-                        window.top.location.href = '/';
-                        return;
-                    }
-                    if (activeRes.ok) {
-                        const activeDel = await activeRes.json();
-                        if (activeDel && activeDel.id) {
-                            activeDeliveryId = activeDel.id;
-                        }
-                    }
-                    
-                    updateUI(user.is_available);
-                } else {
-                    console.error('Greška pri učitavanju profila.');
-                }
-            } catch (error) {
-                console.error('Mrežna greška:', error);
-            }
-        }
-
-        function updateUI(isAvailable) {
-            const statusBadge = document.getElementById('status-badge');
-            const statusText = document.getElementById('status-text');
-            const startView = document.getElementById('start-shift-view');
-            const activeView = document.getElementById('active-shift-view');
-
-            if (isAvailable || activeDeliveryId) {
-                statusBadge.className = 'status-badge on';
-                statusText.innerText = 'Na dužnosti';
-                startView.classList.add('hidden');
-                activeView.classList.remove('hidden');
-                
-                
-                initMap();
-                startPositionPolling();
-
-                
-                fetchOffers();
-                if (!pollingInterval) {
-                    pollingInterval = setInterval(fetchOffers, 1000);
-                }
-            } else {
-                statusBadge.className = 'status-badge off';
-                statusText.innerText = 'Smena nije započeta';
-                startView.classList.remove('hidden');
-                activeView.classList.add('hidden');
-
-                
-                hideMap();
-
-                
-                if (pollingInterval) {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
-                }
-                if (trackingInterval) {
-                    clearInterval(trackingInterval);
-                    trackingInterval = null;
-                }
-            }
-        }
-
-        async function fetchOffers() {
-            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
-            const container = document.getElementById('offers-list-container');
-            const countBadge = document.getElementById('offers-count');
-
-            try {
-                
-                const activeRes = await fetch(`${API_DELIVERIES_URL}/active`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (activeRes.ok) {
-                    const activeDel = await activeRes.json();
-                    if (activeDel && activeDel.id) {
-                        activeDeliveryId = activeDel.id;
-                        
-                        
-                        document.getElementById('start-shift-view').classList.add('hidden');
-                        document.getElementById('active-shift-view').classList.remove('hidden');
-                        document.getElementById('status-badge').className = 'status-badge on';
-                        document.getElementById('status-text').innerText = 'Na dužnosti';
-                        
-                        initMap();
-                        startPositionPolling();
-
-                        showActiveDeliveryBanner(activeDeliveryId);
-                        return;
-                    } else {
-                        activeDeliveryId = null;
-                    }
-                }
-            } catch (err) {
-                console.warn('Greška pri proveri aktivne dostave:', err);
-            }
-
-            try {
-                const response = await fetch(`${API_DELIVERIES_URL}/offers`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                if (response.ok) {
-                    const offers = await response.json();
-                    countBadge.innerText = offers.length;
-                    
-                    if (offers.length === 0) {
-                        container.innerHTML = `<div class="empty-offers">Trenutno nema novih ponuda. Ostanite na liniji!</div>`;
-                        return;
-                    }
-
-                    container.innerHTML = offers.map(offer => `
-                        <div class="offer-card" id="offer-${offer.id}">
-                            <div class="offer-details">
-                                <div class="detail-row">
-                                    <span class="detail-icon">📍</span>
-                                    <span class="detail-label">Od:</span>
-                                    <span class="detail-value">${offer.from_location || '—'}</span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-icon">🏁</span>
-                                    <span class="detail-label">Do:</span>
-                                    <span class="detail-value">${offer.to_location || '—'}</span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-icon">📦</span>
-                                    <span class="detail-label">ID:</span>
-                                    <span class="detail-value" style="font-family: monospace; font-size: 0.85rem;">${offer.id}</span>
-                                </div>
-                            </div>
-                            <div class="offer-actions">
-                                <a href="/courier/dostava.html?id=${offer.id}" class="btn-action btn-accept" style="text-decoration:none; text-align:center;">Vidi još</a>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (error) {
-                console.error('Greška pri dobavljanju ponuda:', error);
-            }
-        }
-
-        function showActiveDeliveryBanner(deliveryId) {
-            const container = document.getElementById('offers-list-container');
-            const countBadge = document.getElementById('offers-count');
-            countBadge.innerText = '✓';
-            container.innerHTML = `
-                <div class="offer-card" style="border-color: #10b981; background: rgba(16,185,129,0.05);">
-                    <div class="offer-details">
-                        <div class="detail-row">
-                            <span class="detail-icon">🟢</span>
-                            <span class="detail-label" style="color:#10b981; font-weight:700;">Aktivna dostava</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-icon">📦</span>
-                            <span class="detail-label">ID:</span>
-                            <span class="detail-value" style="font-family: monospace; font-size: 0.85rem;">${deliveryId}</span>
-                        </div>
-                    </div>
-                    <div class="offer-actions">
-                        <a href="/courier/dostava.html?id=${deliveryId}" class="btn-action btn-accept" style="text-decoration:none; text-align:center;">
-                            🗺️ Nastavi
-                        </a>
-                    </div>
-                </div>
-            `;
-        }
-
-        async function acceptOffer(deliveryId) {
-            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
-            const userId = getUserIdFromToken(token);
-
-            try {
-                const response = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/accept`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ user_id: userId })
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    
-                    if (pollingInterval) {
-                        clearInterval(pollingInterval);
-                        pollingInterval = null;
-                    }
-                    activeDeliveryId = deliveryId;
-                    showActiveDeliveryBanner(deliveryId);
-                } else {
-                    alert('Greška: ' + (result.error || 'Nije moguće prihvatiti dostavu.'));
-                }
-            } catch (error) {
-                console.error('Greška:', error);
-            }
-        }
-
-        async function rejectOffer(deliveryId) {
-            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
-            const userId = getUserIdFromToken(token);
-
-            try {
-                const response = await fetch(`${API_DELIVERIES_URL}/${deliveryId}/reject`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ courier_id: userId })
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    alert('Ponuda je odbijena.');
-                    fetchOffers();
-                } else {
-                    alert('Greška: ' + (result.error || 'Nije moguće odbiti ponudu.'));
-                }
-            } catch (error) {
-                console.error('Greška:', error);
-            }
-        }
-
-        
-        document.getElementById('btn-start-shift').addEventListener('click', async () => {
-            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
-            const userId = getUserIdFromToken(token);
-
-            try {
-                const response = await fetch(`${API_USERS_URL}/${userId}/start_shift`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                if (response.ok) {
-                    updateUI(true);
-                } else {
-                    const result = await response.json();
-                    alert('Greška: ' + (result.error || 'Nije moguće započeti smenu.'));
-                }
-            } catch (error) {
-                console.error('Greška:', error);
-            }
-        });
-
-        
-        document.getElementById('btn-end-shift').addEventListener('click', async () => {
-            const token = localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token');
-            const userId = getUserIdFromToken(token);
-
-            try {
-                const response = await fetch(`${API_USERS_URL}/${userId}/end_shift`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                if (response.ok) {
-                    updateUI(false);
-                } else {
-                    const result = await response.json();
-                    alert('Greška: ' + (result.error || 'Nije moguće završiti smenu.'));
-                }
-            } catch (error) {
-                console.error('Greška:', error);
-            }
-        });
-
-        
-        window.addEventListener('load', initPage);
-    </script>
-</body>
-
-</html>
+    {% for offer in offers %}
+    <div class="card" style="background: #fff; margin-top: 10px; margin-bottom: 0;">
+        <p><strong>ID:</strong> {{ offer.id }}</p>
+        <p><strong>Restoran:</strong> {{ offer.from_location }} | <strong>Kupac:</strong> {{ offer.to_location }}</p>
+        <form method="POST" action="/courier/smena" class="inline">
+            <input type="hidden" name="action" value="accept_offer">
+            <input type="hidden" name="delivery_id" value="{{ offer.id }}">
+            <button type="submit">Prihvati</button>
+        </form>
+        <form method="POST" action="/courier/smena" class="inline">
+            <input type="hidden" name="action" value="reject_offer">
+            <input type="hidden" name="delivery_id" value="{{ offer.id }}">
+            <button type="submit">Odbij</button>
+        </form>
+    </div>
+    {% else %}
+    <p>Trenutno nema ponuđenih dostava.</p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

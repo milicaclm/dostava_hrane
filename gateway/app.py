@@ -33,9 +33,13 @@ def proxy_request(base_url, path):
         traceback.print_exc()
         return Response(f"Proxy error: {str(e)}", status=502)
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def serve_login():
     return proxy_request(AUTH_SERVICE_URL, "")
+
+@app.route('/logout', methods=['GET', 'POST'])
+def serve_logout():
+    return proxy_request(AUTH_SERVICE_URL, "logout")
 
 @app.route('/api/auth-service/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy_auth_api(path):
@@ -52,13 +56,8 @@ def proxy_courier(path=""):
     return proxy_request(DELIVERY_SUBSYSTEM_URL, f"courier/{path}")
 
 @app.route('/api/delivery-subsystem/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
-@app.route('/api/delivery-service/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy_delivery_api(path):
     return proxy_request(DELIVERY_SUBSYSTEM_URL, path)
-
-@app.route('/static/<path:path>')
-def proxy_static(path):
-    return proxy_request(AUTH_SERVICE_URL, f"static/{path}")
 
 @app.route('/favicon.ico')
 def favicon():

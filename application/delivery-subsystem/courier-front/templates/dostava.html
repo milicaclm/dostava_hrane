@@ -1,404 +1,51 @@
-<!DOCTYPE html>
-<html lang="sr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aktivna dostava</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        body { font-family: sans-serif; margin: 20px; }
-        .container { max-width: 800px; margin: auto; }
-        #map { width: 100%; height: 400px; margin-bottom: 20px; border: 1px solid #ccc; }
-        button { padding: 10px 15px; margin: 5px; font-size: 16px; cursor: pointer; }
-        .info { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; background: #f9f9f9; }
-        #toast { padding: 10px; margin-top: 10px; display: none; background: #eee; border: 1px solid #ccc; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="smena.html" style="padding: 10px 15px; margin: 5px; font-size: 16px; cursor: pointer; text-decoration: none; color: black; background: #eee; border: 1px solid #ccc; display: inline-block;">&larr; Nazad na smenu</a>
-        <h2>Dostava <span id="delivery-id-badge"></span> - <span id="status-text">Učitavanje...</span></h2>
+{% extends "courier_base.html" %}
+{% block title %}Aktivna dostava{% endblock %}
+{% block content %}
+<p><a href="/courier/smena" class="btn">&larr; Nazad na smenu</a></p>
+<h1>Dostava {{ delivery.id }} — {{ delivery.status }}</h1>
 
-        <div id="toast"></div>
+<div class="card">
+    <p><strong>Restoran:</strong> {{ delivery.from_location }}</p>
+    <p><strong>Kupac:</strong> {{ delivery.to_location }}</p>
+    <p><strong>Vreme narudžbine:</strong> {{ delivery.order_time or '—' }}</p>
+    <p><strong>Preuzeto:</strong> {{ delivery.pickup_time or '—' }}</p>
+    <p><strong>Isporučeno:</strong> {{ delivery.delivery_time or '—' }}</p>
+</div>
 
-        <div id="map"></div>
-        <p><i>Napomena: Klikni na mapu da zabeležiš svoju trenutnu lokaciju.</i></p>
-        <div id="test-info-box" style="display: none; margin-top: 15px; padding: 10px; border: 1px solid #000; background: #fff;">
-            <h3>TEST prozor (Dodatni podaci)</h3>
-            <pre id="test-raw-data" style="white-space: pre-wrap; font-family: monospace; font-size: 12px;"></pre>
-        </div>
+<div class="card">
+    <h2>Ažuriraj lokaciju</h2>
+    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="row">
+        <input type="hidden" name="action" value="set_location">
+        <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
+        <label>Lat: <input type="number" step="any" name="lat" value="{{ position.lat if position and position.lat is not none else 45.25 }}" required></label>
+        <label>Lon: <input type="number" step="any" name="lon" value="{{ position.lon if position and position.lon is not none else 19.83 }}" required></label>
+        <button type="submit">Sačuvaj lokaciju</button>
+    </form>
+</div>
 
-        <div class="info">
-            <p><strong>Restoran:</strong> <span id="from-location">—</span></p>
-            <p><strong>Kupac:</strong> <span id="to-location">—</span></p>
-            <p>Vreme narudžbine: <span id="order-time">—</span></p>
-            <p id="pickup-time-row"><strong>Preuzeto:</strong> <span id="pickup-time">—</span></p>
-            <p id="delivery-time-row"><strong>Isporučeno:</strong> <span id="delivery-time">—</span></p>
-        </div>
-
-        <div id="actions-section"></div>
-    </div>
-
-    <script>
-        const TEST = true;
-        if (TEST) {
-            document.addEventListener('DOMContentLoaded', () => {
-                document.getElementById('test-info-box').style.display = 'block';
-            });
-        }
-
-        const API_DELIVERIES_URL = 'http://localhost:8000/api/delivery-subsystem/deliveries';
-        const API_USERS_URL = 'http://localhost:8000/api/delivery-subsystem/users';
-        const API_LOCATIONS_URL = 'http://localhost:8000/api/delivery-subsystem/locations';
-
-        let map = null;
-        let courierMarker = null;
-        let pickupMarker = null;
-        let deliveryMarker = null;
-        let routeLine = null;
-        let currentDelivery = null;
-        let currentStatus = null;
-        let trackingInterval = null;
-        let checkInterval = null;
-        let courierLat = null;
-        let courierLon = null;
-
-        function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371.0;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        function updateTestBox(cLat, cLon, rLat, rLon, vehicleType, productCount) {
-            if (!TEST) return;
-            const rawPre = document.getElementById('test-raw-data');
-            let distText = '—';
-            if (cLat != null && cLon != null && rLat != null && rLon != null) {
-                distText = haversineDistance(cLat, cLon, rLat, rLon).toFixed(3) + ' km';
-            }
-            rawPre.textContent = 
-                `Pozicija dostavljača: Lat = ${cLat != null ? cLat.toFixed(6) : '—'}, Lon = ${cLon != null ? cLon.toFixed(6) : '—'}\n` +
-                `Udaljenost do restorana (Haversine): ${distText}\n` +
-                `Tip vozila: ${vehicleType || '—'}\n` +
-                `Broj artikala: ${productCount || 0}`;
-        }
-
-        function getToken() { 
-            try {
-                return localStorage.getItem('jwt_token') || parent.localStorage.getItem('jwt_token'); 
-            } catch (e) {
-                return localStorage.getItem('jwt_token');
-            }
-        }
-        function getUserId() {
-            try { return JSON.parse(atob(getToken().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub; } 
-            catch (e) { return null; }
-        }
-        function getDeliveryIdFromUrl() { return new URLSearchParams(window.location.search).get('id'); }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.display = 'block';
-            setTimeout(() => toast.style.display = 'none', 3000);
-        }
-
-        function formatDateTime(dtStr) {
-            if (!dtStr) return '—';
-            try { return new Date(dtStr.replace(' ', 'T')).toLocaleString('sr-Latn'); } 
-            catch (e) { return dtStr; }
-        }
-
-        function statusLabel(status) {
-            const map = { 'accepted': 'Prihvaćena', 'in transit': 'U dostavi', 'completed': 'Isporučena', 'cancelled': 'Otkazana', 'placed': 'Istekla ponuda' };
-            return map[status] || status;
-        }
-
-        function updateStatusUI(status) {
-            currentStatus = status;
-            if (['accepted', 'in transit', 'completed', 'cancelled', 'placed'].includes(status) && checkInterval) {
-                clearInterval(checkInterval);
-                checkInterval = null;
-            }
-            document.getElementById('status-text').textContent = statusLabel(status);
-            
-            
-            const isUnaccepted = ['offered', 'pending', 'placed'].includes(status);
-            document.getElementById('pickup-time-row').style.display = isUnaccepted ? 'none' : 'block';
-            document.getElementById('delivery-time-row').style.display = isUnaccepted ? 'none' : 'block';
-
-            
-            if (status === 'cancelled') {
-                document.getElementById('pickup-time').textContent = '—';
-                document.getElementById('delivery-time').textContent = '—';
-            }
-
-            if (['completed', 'cancelled', 'placed'].includes(status)) {
-                setTimeout(() => {
-                    window.location.href = 'smena.html';
-                }, 2000);
-            }
-
-            renderActions(status);
-        }
-
-        function renderActions(status) {
-            const section = document.getElementById('actions-section');
-            if (['offered', 'pending', 'placed'].includes(status)) {
-                section.innerHTML = `
-                    <button onclick="doAcceptOffer()">Prihvati</button>
-                    <button onclick="doRejectOffer()">Odbij</button>
-                `;
-            } else if (status === 'accepted') {
-                section.innerHTML = `
-                    <button onclick="doPickup()">Preuzeo sam</button>
-                    <button onclick="doCancel()">Otkaži</button>
-                `;
-            } else if (status === 'in transit') {
-                section.innerHTML = `
-                    <button onclick="doDeliver()">Isporučeno</button>
-                    <button onclick="doCancel()">Otkaži</button>
-                `;
-            } else {
-                section.innerHTML = `<p>Ova dostava je završena ili otkazana.</p>`;
-            }
-        }
-
-        async function doAcceptOffer() {
-            try {
-                const res = await fetch(`${API_DELIVERIES_URL}/${getDeliveryIdFromUrl()}/accept`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: getUserId() })
-                });
-                if (res.ok) { showToast('Prihvaćeno!'); updateStatusUI('accepted'); } 
-                else { showToast('Greška'); }
-            } catch (e) { showToast('Mrežna greška'); }
-        }
-
-        async function doRejectOffer() {
-            try {
-                const res = await fetch(`${API_DELIVERIES_URL}/${getDeliveryIdFromUrl()}/reject`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ courier_id: getUserId() })
-                });
-                if (res.ok) { showToast('Odbijeno'); updateStatusUI('cancelled'); }
-            } catch (e) { showToast('Mrežna greška'); }
-        }
-
-        async function loadOtherDeliveriesOnMap() {
-            if (!TEST) return;
-            const token = getToken();
-            const currentId = getDeliveryIdFromUrl();
-            try {
-                const res = await fetch(API_DELIVERIES_URL, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const deliveries = await res.json();
-                    const redIcon = L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41],
-                        popupAnchor: [1, -34],
-                        shadowSize: [41, 41]
-                    });
-
-                    deliveries.forEach(d => {
-                        if (d.id === currentId) return;
-                        const lat = parseFloat(d.restaurant_lat);
-                        const lon = parseFloat(d.restaurant_lon);
-                        if (!isNaN(lat) && !isNaN(lon)) {
-                            L.marker([lat, lon], { icon: redIcon })
-                             .bindPopup(`Druga dostava: #${d.id}<br>Status: ${d.status}<br>Od: ${d.from_location}`)
-                             .addTo(map);
-                        }
-                    });
-                }
-            } catch (e) {
-                console.warn(e);
-            }
-        }
-
-        function initMap(restaurantLat, restaurantLon, customerLat, customerLon) {
-            let centerLat = restaurantLat || customerLat || 45.25;
-            let centerLon = restaurantLon || customerLon || 19.83;
-            if (restaurantLat && customerLat) {
-                centerLat = (restaurantLat + customerLat) / 2;
-                centerLon = (restaurantLon + customerLon) / 2;
-            }
-            map = L.map('map').setView([centerLat, centerLon], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-            if (restaurantLat && restaurantLon) { pickupMarker = L.marker([restaurantLat, restaurantLon]).bindPopup('Restoran').addTo(map); }
-            if (customerLat && customerLon) { deliveryMarker = L.marker([customerLat, customerLon]).bindPopup('Kupac').addTo(map); }
-            if (restaurantLat && restaurantLon && customerLat && customerLon) {
-                routeLine = L.polyline([[restaurantLat, restaurantLon], [customerLat, customerLon]], { color: 'blue' }).addTo(map);
-            }
-
-            loadOtherDeliveriesOnMap();
-
-            map.on('click', (e) => { placeCourierMarker(e.latlng.lat, e.latlng.lng, true); });
-        }
-
-        function placeCourierMarker(lat, lon, fromClick = false) {
-            if (courierMarker) { courierMarker.setLatLng([lat, lon]); } 
-            else { courierMarker = L.marker([lat, lon]).bindPopup('Ti si ovde').addTo(map); }
-            
-            courierLat = lat;
-            courierLon = lon;
-
-            if (TEST && currentDelivery) {
-                updateTestBox(
-                    courierLat, courierLon,
-                    currentDelivery.restaurant_lat ? parseFloat(currentDelivery.restaurant_lat) : null,
-                    currentDelivery.restaurant_lon ? parseFloat(currentDelivery.restaurant_lon) : null,
-                    currentDelivery.vehicle_type,
-                    currentDelivery.product_count
-                );
-            }
-
-            if (fromClick) { saveLocationToServer(lat, lon); }
-        }
-
-        async function saveLocationToServer(lat, lon) {
-            const userId = getUserId();
-            const deliveryId = getDeliveryIdFromUrl();
-            if (!userId || !deliveryId) return;
-            try {
-                await fetch(`${API_LOCATIONS_URL}/set_position?user_id=${userId}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lat, lon, delivery_id: deliveryId })
-                });
-            } catch (e) { console.warn(e); }
-        }
-
-        function startPositionPolling() {
-            const userId = getUserId();
-            if (!userId || trackingInterval) return;
-            trackingInterval = setInterval(async () => {
-                try {
-                    const res = await fetch(`${API_LOCATIONS_URL}/current_position?user_id=${userId}`, {
-                        headers: { 'Authorization': `Bearer ${getToken()}` }
-                    });
-                    if (!res.ok) return;
-                    const pos = await res.json();
-                    if (!pos || pos.lat == null || pos.lon == null) return;
-                    placeCourierMarker(parseFloat(pos.lat), parseFloat(pos.lon), false);
-                } catch (e) { console.warn(e); }
-            }, 1000);
-        }
-
-        async function doPickup() {
-            try {
-                const res = await fetch(`${API_DELIVERIES_URL}/${getDeliveryIdFromUrl()}/pickup`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ courier_id: getUserId() })
-                });
-                if (res.ok) { showToast('Preuzeto!'); updateStatusUI('in transit'); }
-            } catch (e) { showToast('Greška'); }
-        }
-
-        async function doDeliver() {
-            try {
-                const res = await fetch(`${API_DELIVERIES_URL}/${getDeliveryIdFromUrl()}/deliver`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ courier_id: getUserId() })
-                });
-                if (res.ok) { 
-                    showToast('Isporučeno!'); 
-                    updateStatusUI('completed'); 
-                    document.getElementById('delivery-time').textContent = formatDateTime(new Date().toISOString());
-                }
-            } catch (e) { showToast('Greška'); }
-        }
-
-        async function doCancel() {
-            if (!confirm('Otkaži dostavu?')) return;
-            try {
-                const res = await fetch(`${API_DELIVERIES_URL}/${getDeliveryIdFromUrl()}/cancel`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ courier_id: getUserId() })
-                });
-                if (res.ok) { showToast('Otkazano'); updateStatusUI('cancelled'); }
-            } catch (e) { showToast('Greška'); }
-        }
-
-        async function loadDelivery() {
-            const deliveryId = getDeliveryIdFromUrl();
-            const token = getToken();
-            
-            if (!deliveryId) {
-                document.getElementById('actions-section').innerHTML = 'Greška: Nedostaje ID dostave u URL-u (?id=...).';
-                return;
-            }
-            if (!token) {
-                document.getElementById('actions-section').innerHTML = 'Greška: Niste prijavljeni (nedostaje token).';
-                return;
-            }
-
-            document.getElementById('delivery-id-badge').textContent = '#' + deliveryId;
-            try {
-                const res = await fetch(`${API_DELIVERIES_URL}/${deliveryId}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!res.ok) return;
-                const d = await res.json();
-                currentDelivery = d;
-                
-                if (TEST) {
-                    updateTestBox(
-                        courierLat, courierLon,
-                        d.restaurant_lat ? parseFloat(d.restaurant_lat) : null,
-                        d.restaurant_lon ? parseFloat(d.restaurant_lon) : null,
-                        d.vehicle_type,
-                        d.product_count
-                    );
-                }
-                
-                document.getElementById('from-location').textContent = d.from_location || '—';
-                document.getElementById('to-location').textContent = d.to_location || '—';
-                document.getElementById('order-time').textContent = formatDateTime(d.order_time);
-                document.getElementById('pickup-time').textContent = formatDateTime(d.pickup_time);
-                document.getElementById('delivery-time').textContent = formatDateTime(d.delivery_time);
-
-                const status = d.status || 'accepted';
-                updateStatusUI(status);
-
-                if (['offered', 'pending', 'placed', 'accepted', 'in transit'].includes(status)) {
-                    checkInterval = setInterval(async () => {
-                        try {
-                            const detailRes = await fetch(`${API_DELIVERIES_URL}/${deliveryId}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                            if (detailRes.ok) {
-                                const freshD = await detailRes.json();
-                                if (freshD.status !== currentStatus) {
-                                    updateStatusUI(freshD.status);
-                                    document.getElementById('pickup-time').textContent = formatDateTime(freshD.pickup_time);
-                                    document.getElementById('delivery-time').textContent = formatDateTime(freshD.delivery_time);
-                                }
-                            } else if (detailRes.status === 404) {
-                                clearInterval(checkInterval);
-                                showToast('Dostava nije pronađena');
-                                setTimeout(() => window.location.href = 'smena.html', 2000);
-                            }
-                        } catch (err) {}
-                    }, 1000);
-                }
-
-                initMap(parseFloat(d.restaurant_lat), parseFloat(d.restaurant_lon), parseFloat(d.customer_lat), parseFloat(d.customer_lon));
-            } catch (e) { showToast('Greška učitavanja'); }
-        }
-
-        window.addEventListener('load', () => { loadDelivery(); startPositionPolling(); });
-    </script>
-</body>
+<div class="row">
+    {% if delivery.status == 'accepted' %}
+    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+        <input type="hidden" name="action" value="pickup">
+        <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
+        <button type="submit">Preuzmi dostavu</button>
+    </form>
+    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+        <input type="hidden" name="action" value="cancel">
+        <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
+        <button type="submit">Otkaži dostavu</button>
+    </form>
+    {% elif delivery.status == 'in transit' %}
+    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+        <input type="hidden" name="action" value="deliver">
+        <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
+        <button type="submit">Isporuči dostavu</button>
+    </form>
+    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+        <input type="hidden" name="action" value="cancel">
+        <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
+        <button type="submit">Otkaži dostavu</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

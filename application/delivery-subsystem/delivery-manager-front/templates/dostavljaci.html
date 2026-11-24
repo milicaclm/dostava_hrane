@@ -1,460 +1,103 @@
-<!DOCTYPE html>
-<html lang="sr">
+{% extends "manager_base.html" %}
+{% block title %}Dostavljači{% endblock %}
+{% block content %}
+<h1>Dostavljači</h1>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dostavljači</title>
-    <style>
-        body { font-family: sans-serif; margin: 20px; color: #333; background: #fff; }
-        h1 { text-align: center; margin-bottom: 20px; }
-        .controls { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .search-box { padding: 8px; width: 250px; border: 1px solid #ccc; font-size: 14px; }
-        .search-group { display: flex; gap: 10px; align-items: center; }
-        button { padding: 8px 12px; cursor: pointer; font-size: 14px; border: 1px solid #ccc; background: #eee; color: black; }
-        button:hover { background: #ddd; }
-        .btn-add { background: #dfd; color: #060; font-weight: bold; }
-        .btn-add:hover { background: #ced; }
-        .btn-edit { background: #ffe; }
-        .btn-delete { background: #fdd; color: #600; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ccc; }
-        th { background-color: #eee; font-weight: bold; }
-        th.sortable { cursor: pointer; }
-        .advanced-search-panel { background-color: #fafafa; border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; }
-        .search-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-        .search-field { display: flex; flex-direction: column; gap: 5px; }
-        .search-field label { font-size: 12px; font-weight: bold; }
-        .search-field input, .search-field select { padding: 5px; border: 1px solid #ccc; }
-        .radio-group { display: flex; gap: 10px; align-items: center; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); }
-        .modal-content { background: white; margin: 15% auto; padding: 20px; border: 1px solid #ccc; width: 350px; }
-        .modal-header { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
-        .form-group { margin-bottom: 10px; }
-        .form-group label { display: block; margin-bottom: 2px; font-size: 12px; }
-        .form-group input, .form-group select { width: 100%; padding: 6px; border: 1px solid #ccc; box-sizing: border-box; }
-    </style>
-</head>
+<form method="GET" action="/manager/dostavljaci" class="row">
+    <input type="text" name="q" value="{{ q }}" placeholder="Pretraži po ID, imenu, emailu...">
+    <button type="submit">Pretraži</button>
+    {% if q %}<a href="/manager/dostavljaci" class="btn">Resetuj</a>{% endif %}
+</form>
 
-<body>
-
-    <h1>Dostavljači</h1>
-
-    <div class="controls">
-        <div class="search-group">
-            <input type="text" class="search-box" id="search-basic" placeholder="Pretraži dostavljače...">
-            <button class="btn-advanced" onclick="toggleAdvancedSearch()">Napredna pretraga</button>
-        </div>
-        <div style="display: flex; gap: 10px;">
-            <button onclick="generisiIzvestaj()" style="background: #e0f2fe; color: #0369a1; font-weight: bold; border-color: #7dd3fc;">Izgeneriši izveštaj</button>
-            <button class="btn-add" onclick="openAddModal()">+ Dodaj dostavljača</button>
-        </div>
-    </div>
-
-    
-    <div id="advanced-search-panel" class="advanced-search-panel" style="display: none;">
-        <div class="search-grid">
-            <div class="search-field">
-                <label for="filter-id">ID Dostavljača:</label>
-                <input type="text" id="filter-id" placeholder="Npr. user-del-1">
+<div class="card">
+    <h2>{{ 'Izmeni dostavljača: ' ~ edit_courier.id if edit_courier else 'Novi dostavljač' }}</h2>
+    <form method="POST" action="/manager/dostavljaci">
+        <input type="hidden" name="action" value="{{ 'update' if edit_courier else 'create' }}">
+        <div class="grid">
+            <div class="field">
+                <label>ID</label>
+                <input type="text" name="id" value="{{ edit_courier.id if edit_courier else '' }}" {{ 'readonly' if edit_courier else 'required' }}>
             </div>
-            <div class="search-field">
-                <label for="filter-name">Ime:</label>
-                <input type="text" id="filter-name" placeholder="Npr. Marko">
+            <div class="field">
+                <label>Ime</label>
+                <input type="text" name="name" value="{{ edit_courier.name if edit_courier else '' }}" required>
             </div>
-            <div class="search-field">
-                <label for="filter-surname">Prezime:</label>
-                <input type="text" id="filter-surname" placeholder="Npr. Marković">
+            <div class="field">
+                <label>Prezime</label>
+                <input type="text" name="surname" value="{{ edit_courier.surname if edit_courier else '' }}" required>
             </div>
-            <div class="search-field">
-                <label for="filter-email">Email:</label>
-                <input type="text" id="filter-email" placeholder="Npr. marko@example.com">
+            <div class="field">
+                <label>Email</label>
+                <input type="email" name="email" value="{{ edit_courier.email if edit_courier else '' }}" required>
             </div>
-            <div class="search-field">
-                <label for="filter-phone">Telefon:</label>
-                <input type="text" id="filter-phone" placeholder="Npr. 063">
+            <div class="field">
+                <label>Telefon</label>
+                <input type="text" name="phone_number" value="{{ edit_courier.phone_number if edit_courier else '' }}" required>
             </div>
-            <div class="search-field">
-                <label>Aktivan:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="filter-active" value="" checked> Svi</label>
-                    <label><input type="radio" name="filter-active" value="da"> Da</label>
-                    <label><input type="radio" name="filter-active" value="ne"> Ne</label>
-                </div>
+            {% if not edit_courier %}
+            <div class="field">
+                <label>Lozinka</label>
+                <input type="text" name="password" value="pass1234">
             </div>
-            <div class="search-field">
-                <label>Dozvola za motor:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="filter-moto" value="" checked> Svi</label>
-                    <label><input type="radio" name="filter-moto" value="da"> Da</label>
-                    <label><input type="radio" name="filter-moto" value="ne"> Ne</label>
-                </div>
+            {% endif %}
+            <div class="field">
+                <label>Plata</label>
+                <input type="number" step="0.01" name="salary" value="{{ edit_courier.salary if edit_courier else 0 }}">
             </div>
-            <div class="search-field">
-                <label>Dozvola za auto:</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="filter-car" value="" checked> Svi</label>
-                    <label><input type="radio" name="filter-car" value="da"> Da</label>
-                    <label><input type="radio" name="filter-car" value="ne"> Ne</label>
-                </div>
+            <div class="field">
+                <label>Ocena</label>
+                <input type="number" step="0.1" name="average_rating" value="{{ edit_courier.average_rating if edit_courier else 0 }}">
             </div>
         </div>
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
-            <button class="btn-clear" onclick="clearFilters()">Očisti filtere</button>
+        <div class="row">
+            <label><input type="checkbox" name="is_active" {{ 'checked' if (edit_courier and edit_courier.is_active) or not edit_courier }}> Aktivan</label>
+            <label><input type="checkbox" name="motorcycle_license" {{ 'checked' if edit_courier and edit_courier.motorcycle_license }}> Dozvola za motor</label>
+            <label><input type="checkbox" name="car_license" {{ 'checked' if edit_courier and edit_courier.car_license }}> Dozvola za auto</label>
         </div>
-    </div>
+        <button type="submit">{{ 'Sačuvaj izmene' if edit_courier else '+ Dodaj dostavljača' }}</button>
+        {% if edit_courier %}<a href="/manager/dostavljaci" class="btn">Otkaži</a>{% endif %}
+    </form>
+</div>
 
-    <table>
-        <thead>
-            <tr>
-                <th class="sortable">ID</th>
-                <th class="sortable">Ime</th>
-                <th class="sortable">Prezime</th>
-                <th class="sortable">Email</th>
-                <th class="sortable">Telefon</th>
-                <th class="sortable">Aktivan</th>
-                <th class="sortable" title="Klikni za sortiranje">Dozvola (Motor)</th>
-                <th class="sortable" title="Klikni za sortiranje">Dozvola (Auto)</th>
-                <th class="sortable">Plata (RSD)</th>
-                <th class="sortable">Ocena</th>
-                <th>Akcije</th>
-            </tr>
-        </thead>
-        <tbody>
-            
-        </tbody>
-    </table>
-
-    
-    <div id="addModal" class="modal">
-        <div class="modal-content">
-            <div id="modalTitle" class="modal-header">Novi dostavljač</div>
-            <div class="form-group">
-                <label>ID:</label>
-                <input type="text" id="add-id" placeholder="user-del-5">
-            </div>
-            <div class="form-group">
-                <label>Ime:</label>
-                <input type="text" id="add-name">
-            </div>
-            <div class="form-group">
-                <label>Prezime:</label>
-                <input type="text" id="add-surname">
-            </div>
-            <div class="form-group">
-                <label>Email:</label>
-                <input type="email" id="add-email">
-            </div>
-            <div class="form-group">
-                <label>Telefon:</label>
-                <input type="text" id="add-phone">
-            </div>
-            <div class="form-group">
-                <label>Plata:</label>
-                <input type="number" id="add-salary">
-            </div>
-            <div class="form-group" style="display: flex; gap: 20px; margin-top: 10px;">
-                <label style="display: flex; gap: 5px; align-items: center;">
-                    <input type="checkbox" id="add-moto" style="width: auto;"> Motor dozvola
-                </label>
-                <label style="display: flex; gap: 5px; align-items: center;">
-                    <input type="checkbox" id="add-car" style="width: auto;"> Auto dozvola
-                </label>
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
-                <button class="btn-edit" onclick="closeModal()">Otkaži</button>
-                <button class="btn-add" onclick="submitCourier()">Sačuvaj</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const API_BASE_COURIERS = 'http://localhost:8000/api/delivery-subsystem/resources/couriers';
-
-        function generisiIzvestaj() {
-            window.location.href = 'http://localhost:8000/api/delivery-subsystem/analytics/report.pdf';
-        }
-
-        let isEditMode = false;
-        let allCouriers = [];
-
-        function toggleAdvancedSearch() {
-            const panel = document.getElementById('advanced-search-panel');
-            if (panel.style.display === 'none') {
-                panel.style.display = 'block';
-            } else {
-                panel.style.display = 'none';
-            }
-        }
-
-        function clearFilters() {
-            document.getElementById('search-basic').value = '';
-            document.getElementById('filter-id').value = '';
-            document.getElementById('filter-name').value = '';
-            document.getElementById('filter-surname').value = '';
-            document.getElementById('filter-email').value = '';
-            document.getElementById('filter-phone').value = '';
-            document.querySelector('input[name="filter-active"][value=""]').checked = true;
-            document.querySelector('input[name="filter-moto"][value=""]').checked = true;
-            document.querySelector('input[name="filter-car"][value=""]').checked = true;
-            applyFilters();
-        }
-
-        function applyFilters() {
-            const basicSearch = document.getElementById('search-basic').value.trim().toLowerCase();
-            const filterId = document.getElementById('filter-id').value.trim().toLowerCase();
-            const filterName = document.getElementById('filter-name').value.trim().toLowerCase();
-            const filterSurname = document.getElementById('filter-surname').value.trim().toLowerCase();
-            const filterEmail = document.getElementById('filter-email').value.trim().toLowerCase();
-            const filterPhone = document.getElementById('filter-phone').value.trim().toLowerCase();
-            const filterActive = document.querySelector('input[name="filter-active"]:checked').value;
-            const filterMoto = document.querySelector('input[name="filter-moto"]:checked').value;
-            const filterCar = document.querySelector('input[name="filter-car"]:checked').value;
-
-            const filtered = allCouriers.filter(courier => {
-                if (basicSearch) {
-                    const idMatch = courier.id && courier.id.toLowerCase().includes(basicSearch);
-                    const nameMatch = courier.name && courier.name.toLowerCase().includes(basicSearch);
-                    const surnameMatch = courier.surname && courier.surname.toLowerCase().includes(basicSearch);
-                    if (!idMatch && !nameMatch && !surnameMatch) {
-                        return false;
-                    }
-                }
-                if (filterId && !(courier.id && courier.id.toLowerCase().includes(filterId))) {
-                    return false;
-                }
-                if (filterName && !(courier.name && courier.name.toLowerCase().includes(filterName))) {
-                    return false;
-                }
-                if (filterSurname && !(courier.surname && courier.surname.toLowerCase().includes(filterSurname))) {
-                    return false;
-                }
-                if (filterEmail && !(courier.email && courier.email.toLowerCase().includes(filterEmail))) {
-                    return false;
-                }
-                if (filterPhone && !(courier.phone_number && courier.phone_number.toLowerCase().includes(filterPhone))) {
-                    return false;
-                }
-                if (filterActive) {
-                    const isActiveStr = courier.is_active ? 'da' : 'ne';
-                    if (isActiveStr !== filterActive) return false;
-                }
-                if (filterMoto) {
-                    const isMotoStr = courier.motorcycle_license ? 'da' : 'ne';
-                    if (isMotoStr !== filterMoto) return false;
-                }
-                if (filterCar) {
-                    const isCarStr = courier.car_license ? 'da' : 'ne';
-                    if (isCarStr !== filterCar) return false;
-                }
-                return true;
-            });
-
-            renderCouriers(filtered);
-        }
-
-        function renderCouriers(couriersList) {
-            const tbody = document.querySelector('tbody');
-            tbody.innerHTML = '';
-            
-            if (couriersList) {
-                couriersList.forEach(courier => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${courier.id}</td>
-                        <td>${courier.name}</td>
-                        <td>${courier.surname}</td>
-                        <td>${courier.email}</td>
-                        <td>${courier.phone_number || '/'}</td>
-                        <td>${courier.is_active ? 'Da' : 'Ne'}</td>
-                        <td>${courier.motorcycle_license ? 'Da' : 'Ne'}</td>
-                        <td>${courier.car_license ? 'Da' : 'Ne'}</td>
-                        <td>${courier.salary}</td>
-                        <td>${courier.average_rating}</td>
-                        <td>
-                            <button class="btn-edit" onclick="editCourier('${courier.id}')">Izmeni</button>
-                            <button class="btn-delete" onclick="deleteCourier('${courier.id}')">Obriši</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-        }
-
-        async function loadCouriers() {
-            const token = localStorage.getItem('jwt_token');
-            try {
-                const response = await fetch(API_BASE_COURIERS, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                const data = await response.json();
-                
-                if (data.couriers) {
-                    allCouriers = data.couriers;
-                } else {
-                    allCouriers = [];
-                }
-                applyFilters();
-            } catch (error) {
-                console.error('Greška pri učitavanju dostavljača:', error);
-            }
-        }
-
-        function openAddModal() {
-            isEditMode = false;
-            document.getElementById('modalTitle').innerText = 'Novi dostavljač';
-            document.getElementById('add-id').value = '';
-            document.getElementById('add-id').readOnly = false;
-            document.getElementById('add-name').value = '';
-            document.getElementById('add-surname').value = '';
-            document.getElementById('add-email').value = '';
-            document.getElementById('add-phone').value = '';
-            document.getElementById('add-salary').value = '';
-            document.getElementById('add-moto').checked = false;
-            document.getElementById('add-car').checked = false;
-            document.getElementById('addModal').style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('addModal').style.display = 'none';
-        }
-
-        async function submitCourier() {
-            const id = document.getElementById('add-id').value;
-            if (!id) return;
-            const url = isEditMode ? `${API_BASE_COURIERS}/${id}/update` : API_BASE_COURIERS;
-            const method = isEditMode ? 'PUT' : 'POST';
-            const payload = {
-                id, 
-                name: document.getElementById('add-name').value,
-                surname: document.getElementById('add-surname').value,
-                email: document.getElementById('add-email').value,
-                phone_number: document.getElementById('add-phone').value,
-                salary: parseFloat(document.getElementById('add-salary').value) || 0,
-                motorcycle_license: document.getElementById('add-moto').checked,
-                car_license: document.getElementById('add-car').checked,
-                is_active: true,
-                password: 'pass'
-            };
-
-            const token = localStorage.getItem('jwt_token');
-            try {
-                await fetch(url, {
-                    method: method,
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(payload)
-                });
-                closeModal();
-                loadCouriers();
-            } catch (e) { console.error(e); }
-        }
-
-        async function deleteCourier(id) {
-            if (!confirm('Da li ste sigurni da želite da obrišete ovog dostavljača?')) return;
-            const token = localStorage.getItem('jwt_token');
-            try {
-                await fetch(`${API_BASE_COURIERS}/${id}`, { 
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                loadCouriers();
-            } catch (e) { console.error(e); }
-        }
-
-        async function editCourier(id) {
-            isEditMode = true;
-            const token = localStorage.getItem('jwt_token');
-            try {
-                const resp = await fetch(API_BASE_COURIERS, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                const data = await resp.json();
-                const c = data.couriers.find(x => x.id === id);
-                if (!c) return;
-                document.getElementById('modalTitle').innerText = 'Izmena dostavljača';
-                document.getElementById('add-id').value = c.id;
-                document.getElementById('add-id').readOnly = true;
-                document.getElementById('add-name').value = c.name || '';
-                document.getElementById('add-surname').value = c.surname || '';
-                document.getElementById('add-email').value = c.email || '';
-                document.getElementById('add-phone').value = c.phone_number || '';
-                document.getElementById('add-salary').value = c.salary || 0;
-                document.getElementById('add-moto').checked = c.motorcycle_license || false;
-                document.getElementById('add-car').checked = c.car_license || false;
-                document.getElementById('addModal').style.display = 'block';
-            } catch (e) { console.error(e); }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadCouriers(); 
-
-            
-            document.getElementById('search-basic').addEventListener('input', applyFilters);
-            document.getElementById('filter-id').addEventListener('input', applyFilters);
-            document.getElementById('filter-name').addEventListener('input', applyFilters);
-            document.getElementById('filter-surname').addEventListener('input', applyFilters);
-            document.getElementById('filter-email').addEventListener('input', applyFilters);
-            document.getElementById('filter-phone').addEventListener('input', applyFilters);
-
-            document.querySelectorAll('input[name="filter-active"]').forEach(radio => {
-                radio.addEventListener('change', applyFilters);
-            });
-            document.querySelectorAll('input[name="filter-moto"]').forEach(radio => {
-                radio.addEventListener('change', applyFilters);
-            });
-            document.querySelectorAll('input[name="filter-car"]').forEach(radio => {
-                radio.addEventListener('change', applyFilters);
-            });
-            
-            document.querySelectorAll('th.sortable').forEach(th => {
-                let asc = true;
-                th.addEventListener('click', () => {
-                    const table = th.closest('table');
-                    const tbody = table.querySelector('tbody');
-                    const index = Array.from(th.parentNode.children).indexOf(th);
-
-                    
-                    table.querySelectorAll('th.sortable').forEach(header => {
-                        if (header !== th) header.classList.remove('asc', 'desc');
-                    });
-
-                    
-                    if (asc) {
-                        th.classList.remove('desc');
-                        th.classList.add('asc');
-                    } else {
-                        th.classList.remove('asc');
-                        th.classList.add('desc');
-                    }
-
-                    const rows = Array.from(tbody.querySelectorAll('tr'));
-                    rows.sort((a, b) => {
-                        const valA = a.children[index].innerText.trim();
-                        const valB = b.children[index].innerText.trim();
-
-                        
-                        if (!isNaN(valA) && !isNaN(valB) && valA !== '' && valB !== '') {
-                            return asc ? valA - valB : valB - valA;
-                        } else {
-                            return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                        }
-                    });
-
-                    asc = !asc;
-                    rows.forEach(tr => tbody.appendChild(tr));
-                });
-            });
-        });
-    </script>
-</body>
-
-</html>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Ime i prezime</th>
+            <th>Email</th>
+            <th>Telefon</th>
+            <th>Aktivan</th>
+            <th>Motor</th>
+            <th>Auto</th>
+            <th>Plata</th>
+            <th>Ocena</th>
+            <th>Akcije</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in couriers %}
+        <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.name }} {{ c.surname }}</td>
+            <td>{{ c.email }}</td>
+            <td>{{ c.phone_number }}</td>
+            <td>{{ 'Da' if c.is_active else 'Ne' }}</td>
+            <td>{{ 'Da' if c.motorcycle_license else 'Ne' }}</td>
+            <td>{{ 'Da' if c.car_license else 'Ne' }}</td>
+            <td>{{ c.salary }}</td>
+            <td>{{ c.average_rating }}</td>
+            <td>
+                <a href="/manager/dostavljaci?edit_id={{ c.id }}" class="btn">Izmeni</a>
+                <form method="POST" action="/manager/dostavljaci" class="inline">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="{{ c.id }}">
+                    <button type="submit">Obriši</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10">Nema dostavljača.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

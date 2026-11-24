@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, request, Blueprint, render_template
+from flask import Flask, jsonify, request, Blueprint, render_template, redirect, make_response
 from neo4j import GraphDatabase
 from flask_jwt_extended import create_access_token, JWTManager
 import uuid
@@ -24,27 +24,39 @@ try:
 except Exception:
     pass
 
-@app.route("/")
+@app.route("/", methods=['GET', 'POST'])
 def index():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        with driver.session() as session:
+            result = session.run("MATCH (u:User {email: $email, password: $password}) RETURN u", email=email, password=password)
+            record = result.single()
+            if record:
+                user_node = record["u"]
+                account_type = user_node["account_type"]
+                if account_type == 'manager':
+                    target = '/manager/'
+                elif account_type == 'courier':
+                    target = '/courier/'
+                else:
+                    return render_template('login.html', error='Tip naloga nije podržan za prijavu.')
+                access_token = create_access_token(
+                    identity=user_node["id"],
+                    additional_claims={"account_type": account_type}
+                )
+                resp = make_response(redirect(target))
+                resp.set_cookie('jwt_token', access_token, httponly=True, path='/', samesite='Lax')
+                return resp
+            return render_template('login.html', error='Pogrešan email ili lozinka.')
     return render_template('login.html')
 
-@auth_bp.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+@app.route("/logout", methods=['GET', 'POST'])
+def logout():
+    resp = make_response(redirect('/'))
+    resp.delete_cookie('jwt_token', path='/')
+    return resp
 
-    with driver.session() as session:
-        result = session.run("MATCH (u:User {email: $email, password: $password}) RETURN u", email=email, password=password)
-        record = result.single()
-        if record:
-            user_node = record["u"]
-            additional_claims = {"account_type": user_node["account_type"]}
-            access_token = create_access_token(identity=user_node["id"], additional_claims=additional_claims)
-            return jsonify(access_token=access_token), 200
-        else:
-            return jsonify({"error": "Invalid email or password"}), 401
-        
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
