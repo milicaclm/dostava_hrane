@@ -88,7 +88,8 @@ def manager_couriers():
     if res and not isinstance(res, str):
         return res
     _, items = _api("GET", "/resources/couriers")
-    items = _filter(items if isinstance(items, list) else [], ("id", "name", "surname", "email"))
+    items = items.get("couriers", []) if isinstance(items, dict) else (items if isinstance(items, list) else [])
+    items = _filter(items, ("id", "name", "surname", "email"))
     edit_item = next((c for c in items if c.get("id") == request.args.get("edit_id")), None)
     return render_template("dostavljaci.html", manager=_mgr(), couriers=items, q=request.args.get("q", ""), edit_courier=edit_item, error=res, active_page="dostavljaci")
 

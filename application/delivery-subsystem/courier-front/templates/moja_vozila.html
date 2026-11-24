@@ -10,7 +10,7 @@
 </form>
 
 <div class="card">
-    <h2>{{ 'Izmeni vozilo: ' ~ edit_vehicle.id if edit_vehicle else 'Novo moje vozilo' }}</h2>
+    <h2>{{ 'Izmeni vozilo: ' ~ edit_vehicle.id if edit_vehicle else 'Novo lično vozilo' }}</h2>
     <form method="POST" action="/courier/moja-vozila">
         <input type="hidden" name="action" value="{{ 'update' if edit_vehicle else 'create' }}">
         {% if edit_vehicle %}
