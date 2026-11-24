@@ -10,12 +10,12 @@
 <div class="card">
     {% if not is_active %}
     <p>Aktivirajte smenu kako biste mogli da primate ponude za dostave.</p>
-    <form method="POST" action="/courier/smena">
+    <form method="POST" action="/courier/shift">
         <input type="hidden" name="action" value="start_shift">
         <button type="submit">Započni smenu</button>
     </form>
     {% else %}
-    <form method="POST" action="/courier/smena">
+    <form method="POST" action="/courier/shift">
         <input type="hidden" name="action" value="end_shift">
         <button type="submit">Završi smenu</button>
     </form>
@@ -30,7 +30,7 @@
     <iframe width="100%" height="260" style="border: 1px solid #000; margin-bottom: 10px;"
         src="https://www.openstreetmap.org/export/embed.html?bbox={{ lon - 0.01 }}%2C{{ lat - 0.01 }}%2C{{ lon + 0.01 }}%2C{{ lat + 0.01 }}&amp;layer=mapnik&amp;marker={{ lat }}%2C{{ lon }}">
     </iframe>
-    <form method="POST" action="/courier/smena" class="row">
+    <form method="POST" action="/courier/shift" class="row">
         <input type="hidden" name="action" value="set_location">
         <label>Lat: <input type="number" step="any" name="lat" value="{{ position.lat if position and position.lat is not none else 45.25 }}" required></label>
         <label>Lon: <input type="number" step="any" name="lon" value="{{ position.lon if position and position.lon is not none else 19.83 }}" required></label>
@@ -43,25 +43,25 @@
     <h2>Aktivna dostava</h2>
     <p><strong>ID:</strong> {{ active_delivery.id }} | <strong>Status:</strong> {{ active_delivery.status }}</p>
     <p><strong>Od:</strong> {{ active_delivery.from_location }} &rarr; <strong>Do:</strong> {{ active_delivery.to_location }}</p>
-    <a href="/courier/dostava?id={{ active_delivery.id }}" class="btn">Otvori aktivnu dostavu</a>
+    <a href="/courier/delivery?id={{ active_delivery.id }}" class="btn">Otvori aktivnu dostavu</a>
 </div>
 {% endif %}
 
 <div class="card">
     <div class="row" style="justify-content: space-between;">
         <h2 style="margin: 0;">Ponuđene dostave ({{ offers | length }})</h2>
-        <a href="/courier/smena" class="btn">Osveži</a>
+        <a href="/courier/shift" class="btn">Osveži</a>
     </div>
     {% for offer in offers %}
     <div class="card" style="background: #fff; margin-top: 10px; margin-bottom: 0;">
         <p><strong>ID:</strong> {{ offer.id }}</p>
         <p><strong>Restoran:</strong> {{ offer.from_location }} | <strong>Kupac:</strong> {{ offer.to_location }}</p>
-        <form method="POST" action="/courier/smena" class="inline">
+        <form method="POST" action="/courier/shift" class="inline">
             <input type="hidden" name="action" value="accept_offer">
             <input type="hidden" name="delivery_id" value="{{ offer.id }}">
             <button type="submit">Prihvati</button>
         </form>
-        <form method="POST" action="/courier/smena" class="inline">
+        <form method="POST" action="/courier/shift" class="inline">
             <input type="hidden" name="action" value="reject_offer">
             <input type="hidden" name="delivery_id" value="{{ offer.id }}">
             <button type="submit">Odbij</button>

@@ -16,7 +16,7 @@ def health():
 
 
 @analytics_bp.route('/accepted-per-vehicle', methods=['GET'])
-def prihvacene_po_vozilu():
+def accepted_per_vehicle():
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
@@ -47,7 +47,7 @@ def prihvacene_po_vozilu():
 
 
 @analytics_bp.route('/courier-active-time', methods=['GET'])
-def aktivno_vreme_kurira():
+def courier_active_time():
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
@@ -74,7 +74,7 @@ def aktivno_vreme_kurira():
 
 
 @analytics_bp.route('/cancelled-by-courier', methods=['GET'])
-def otkazanih_po_radniku():
+def cancelled_by_courier():
     query = f'''
         from(bucket: "{influx_bucket}")
         |> range(start: -60d)
@@ -103,7 +103,7 @@ def otkazanih_po_radniku():
 
 
 @analytics_bp.route('/hourly-accepted', methods=['GET'])
-def dostave_po_satima():
+def hourly_accepted():
 
     query = f'''
         import "date"
@@ -138,13 +138,13 @@ def dostave_po_satima():
 
 
 @analytics_bp.route('/report.pdf', methods=['GET'])
-def generisi_izvestaj_pdf():
+def generate_report_pdf():
     
     try:
-        veh_data = prihvacene_po_vozilu()[0].get_json()
-        activity_data = aktivno_vreme_kurira()[0].get_json()
-        cancelled_data = otkazanih_po_radniku()[0].get_json()
-        hourly_data = dostave_po_satima()[0].get_json()
+        veh_data = accepted_per_vehicle()[0].get_json()
+        activity_data = courier_active_time()[0].get_json()
+        cancelled_data = cancelled_by_courier()[0].get_json()
+        hourly_data = hourly_accepted()[0].get_json()
 
         pdf_buf = io.BytesIO()
         with PdfPages(pdf_buf) as pdf:

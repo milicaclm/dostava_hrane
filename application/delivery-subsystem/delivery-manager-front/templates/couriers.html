@@ -3,15 +3,15 @@
 {% block content %}
 <h1>Dostavljači</h1>
 
-<form method="GET" action="/manager/dostavljaci" class="row">
+<form method="GET" action="/manager/couriers" class="row">
     <input type="text" name="q" value="{{ q }}" placeholder="Pretraži po ID, imenu, emailu...">
     <button type="submit">Pretraži</button>
-    {% if q %}<a href="/manager/dostavljaci" class="btn">Resetuj</a>{% endif %}
+    {% if q %}<a href="/manager/couriers" class="btn">Resetuj</a>{% endif %}
 </form>
 
 <div class="card">
     <h2>{{ 'Izmeni dostavljača: ' ~ edit_courier.id if edit_courier else 'Novi dostavljač' }}</h2>
-    <form method="POST" action="/manager/dostavljaci">
+    <form method="POST" action="/manager/couriers">
         <input type="hidden" name="action" value="{{ 'update' if edit_courier else 'create' }}">
         <div class="grid">
             <div class="field">
@@ -55,7 +55,7 @@
             <label><input type="checkbox" name="car_license" {{ 'checked' if edit_courier and edit_courier.car_license }}> Dozvola za auto</label>
         </div>
         <button type="submit">{{ 'Sačuvaj izmene' if edit_courier else '+ Dodaj dostavljača' }}</button>
-        {% if edit_courier %}<a href="/manager/dostavljaci" class="btn">Otkaži</a>{% endif %}
+        {% if edit_courier %}<a href="/manager/couriers" class="btn">Otkaži</a>{% endif %}
     </form>
 </div>
 
@@ -87,8 +87,8 @@
             <td>{{ c.salary }}</td>
             <td>{{ c.average_rating }}</td>
             <td>
-                <a href="/manager/dostavljaci?edit_id={{ c.id }}" class="btn">Izmeni</a>
-                <form method="POST" action="/manager/dostavljaci" class="inline">
+                <a href="/manager/couriers?edit_id={{ c.id }}" class="btn">Izmeni</a>
+                <form method="POST" action="/manager/couriers" class="inline">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="{{ c.id }}">
                     <button type="submit">Obriši</button>

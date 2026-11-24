@@ -3,7 +3,7 @@
 {% block content %}
 <h1>Vozila</h1>
 
-<form method="GET" action="/manager/vozila" class="row">
+<form method="GET" action="/manager/vehicles" class="row">
     <input type="text" name="q" value="{{ q }}" placeholder="Pretraži po ID, oznaci, marki...">
     <select name="type">
         <option value="">Svi tipovi</option>
@@ -13,12 +13,12 @@
         <option value="car" {{ 'selected' if type_filter == 'car' }}>car</option>
     </select>
     <button type="submit">Filtriraj</button>
-    {% if q or type_filter %}<a href="/manager/vozila" class="btn">Resetuj</a>{% endif %}
+    {% if q or type_filter %}<a href="/manager/vehicles" class="btn">Resetuj</a>{% endif %}
 </form>
 
 <div class="card">
     <h2>{{ 'Izmeni vozilo: ' ~ edit_vehicle.id if edit_vehicle else 'Novo službeno vozilo' }}</h2>
-    <form method="POST" action="/manager/vozila">
+    <form method="POST" action="/manager/vehicles">
         <input type="hidden" name="action" value="{{ 'update' if edit_vehicle else 'create' }}">
         {% if edit_vehicle %}
         <input type="hidden" name="id" value="{{ edit_vehicle.id }}">
@@ -57,7 +57,7 @@
             <label><input type="checkbox" name="is_ready" {{ 'checked' if (edit_vehicle and edit_vehicle.is_ready) or not edit_vehicle }}> Spremno</label>
         </div>
         <button type="submit">{{ 'Sačuvaj izmene' if edit_vehicle else '+ Dodaj vozilo' }}</button>
-        {% if edit_vehicle %}<a href="/manager/vozila" class="btn">Otkaži</a>{% endif %}
+        {% if edit_vehicle %}<a href="/manager/vehicles" class="btn">Otkaži</a>{% endif %}
     </form>
 </div>
 
@@ -88,8 +88,8 @@
             <td>{{ 'Da' if v.in_use else 'Ne' }}</td>
             <td>
                 {% if not v.owner_id %}
-                <a href="/manager/vozila?edit_id={{ v.id }}" class="btn">Izmeni</a>
-                <form method="POST" action="/manager/vozila" class="inline">
+                <a href="/manager/vehicles?edit_id={{ v.id }}" class="btn">Izmeni</a>
+                <form method="POST" action="/manager/vehicles" class="inline">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="{{ v.id }}">
                     <button type="submit">Obriši</button>

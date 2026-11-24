@@ -74,27 +74,27 @@ def _mgr():
 @manager_front_bp.route("/")
 @require_role("manager")
 def manager_index():
-    return redirect("/manager/dostavljaci")
+    return redirect("/manager/couriers")
 
 
-@manager_front_bp.route("/dostavljaci", methods=["GET", "POST"])
+@manager_front_bp.route("/couriers", methods=["GET", "POST"])
 @require_role("manager")
 def manager_couriers():
     res = _crud_post({
         "create": ("POST", "/resources/couriers", None),
         "update": ("PUT", "/resources/couriers/{id}/update", None),
         "delete": ("DELETE", "/resources/couriers/{id}", None),
-    }, "/manager/dostavljaci") if request.method == "POST" else None
+    }, "/manager/couriers") if request.method == "POST" else None
     if res and not isinstance(res, str):
         return res
     _, items = _api("GET", "/resources/couriers")
     items = items.get("couriers", []) if isinstance(items, dict) else (items if isinstance(items, list) else [])
     items = _filter(items, ("id", "name", "surname", "email"))
     edit_item = next((c for c in items if c.get("id") == request.args.get("edit_id")), None)
-    return render_template("dostavljaci.html", manager=_mgr(), couriers=items, q=request.args.get("q", ""), edit_courier=edit_item, error=res, active_page="dostavljaci")
+    return render_template("couriers.html", manager=_mgr(), couriers=items, q=request.args.get("q", ""), edit_courier=edit_item, error=res, active_page="couriers")
 
 
-@manager_front_bp.route("/dostave", methods=["GET", "POST"])
+@manager_front_bp.route("/deliveries", methods=["GET", "POST"])
 @require_role("manager")
 def manager_deliveries():
     now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -102,7 +102,7 @@ def manager_deliveries():
         "create": ("POST", "/deliveries/", {"order_time": now, "start_time": now}),
         "update": ("PUT", "/deliveries/{id}", {"order_time": now, "start_time": now}),
         "delete": ("DELETE", "/deliveries/{id}", None),
-    }, "/manager/dostave") if request.method == "POST" else None
+    }, "/manager/deliveries") if request.method == "POST" else None
     if res and not isinstance(res, str):
         return res
     _, items = _api("GET", "/deliveries")
@@ -110,17 +110,17 @@ def manager_deliveries():
     sf = request.args.get("status", "").strip().lower()
     items = [d for d in items if not sf or str(d.get("status", "")).lower() == sf]
     edit_item = next((d for d in items if d.get("id") == request.args.get("edit_id")), None)
-    return render_template("dostave.html", manager=_mgr(), deliveries=items, q=request.args.get("q", ""), status_filter=request.args.get("status", ""), edit_delivery=edit_item, error=res, active_page="dostave")
+    return render_template("deliveries.html", manager=_mgr(), deliveries=items, q=request.args.get("q", ""), status_filter=request.args.get("status", ""), edit_delivery=edit_item, error=res, active_page="deliveries")
 
 
-@manager_front_bp.route("/vozila", methods=["GET", "POST"])
+@manager_front_bp.route("/vehicles", methods=["GET", "POST"])
 @require_role("manager")
 def manager_vehicles():
     res = _crud_post({
         "create": ("POST", "/resources/vehicles", {"owner_id": None}),
         "update": ("PUT", "/resources/vehicles/{id}/update", None),
         "delete": ("DELETE", "/resources/vehicles/{id}", None),
-    }, "/manager/vozila") if request.method == "POST" else None
+    }, "/manager/vehicles") if request.method == "POST" else None
     if res and not isinstance(res, str):
         return res
     _, items = _api("GET", "/resources/vehicles")
@@ -129,10 +129,10 @@ def manager_vehicles():
     tf = request.args.get("type", "").strip().lower()
     items = [v for v in items if not tf or str(v.get("type", "")).lower() == tf]
     edit_item = next((v for v in items if v.get("id") == request.args.get("edit_id")), None)
-    return render_template("vozila.html", manager=_mgr(), vehicles=items, q=request.args.get("q", ""), type_filter=request.args.get("type", ""), edit_vehicle=edit_item, error=res, active_page="vozila")
+    return render_template("vehicles.html", manager=_mgr(), vehicles=items, q=request.args.get("q", ""), type_filter=request.args.get("type", ""), edit_vehicle=edit_item, error=res, active_page="vehicles")
 
 
-@manager_front_bp.route("/parametri", methods=["GET", "POST"])
+@manager_front_bp.route("/parameters", methods=["GET", "POST"])
 @require_role("manager")
 def manager_parameters():
     msg, err = None, None
@@ -141,16 +141,16 @@ def manager_parameters():
         msg = "Parametri su uspešno sačuvani." if code == 200 else None
         err = None if code == 200 else (data or {}).get("error", "Greška pri čuvanju.")
     _, params = _api("GET", "/scheduler/parameters")
-    return render_template("parametri.html", manager=_mgr(), params=params if isinstance(params, dict) else {}, message=msg, error=err, active_page="parametri")
+    return render_template("parameters.html", manager=_mgr(), params=params if isinstance(params, dict) else {}, message=msg, error=err, active_page="parameters")
 
 
 @courier_front_bp.route("/")
 @require_role("courier")
 def courier_index():
-    return redirect("/courier/smena")
+    return redirect("/courier/shift")
 
 
-@courier_front_bp.route("/smena", methods=["GET", "POST"])
+@courier_front_bp.route("/shift", methods=["GET", "POST"])
 @require_role("courier")
 def courier_shift():
     err, msg = None, None
@@ -159,7 +159,7 @@ def courier_shift():
         if act == "accept_offer":
             code, data = _api("POST", f"/deliveries/{did}/accept", {"courier_id": g.user_id})
             if code == 200:
-                return redirect(f"/courier/dostava?id={did}")
+                return redirect(f"/courier/delivery?id={did}")
             err = (data or {}).get("error", "Nije moguće prihvatiti dostavu.")
         elif act == "set_location":
             code, data = _api("POST", f"/locations/set_position?user_id={g.user_id}", {"lat": float(request.form["lat"]), "lon": float(request.form["lon"])})
@@ -170,7 +170,7 @@ def courier_shift():
                 "start_shift": ("POST", "/users/{uid}/start_shift", None),
                 "end_shift": ("POST", "/users/{uid}/end_shift", None),
                 "reject_offer": ("POST", f"/deliveries/{did}/reject", {"courier_id": g.user_id}),
-            }, "/courier/smena")
+            }, "/courier/shift")
             if res and not isinstance(res, str):
                 return res
             err = res
@@ -179,10 +179,10 @@ def courier_shift():
     _, pos = _api("GET", f"/locations/current_position?user_id={g.user_id}")
     _, act_del = _api("GET", f"/deliveries/active?courier_id={g.user_id}")
     _, offers = _api("GET", f"/deliveries/offers?courier_id={g.user_id}")
-    return render_template("smena.html", user=user, is_active=bool(user.get("is_available", False)), position=pos if isinstance(pos, dict) else {"lat": 45.25, "lon": 19.83}, active_delivery=act_del if isinstance(act_del, dict) and act_del.get("id") else None, offers=offers if isinstance(offers, list) else [], message=msg, error=err, active_page="smena")
+    return render_template("shift.html", user=user, is_active=bool(user.get("is_available", False)), position=pos if isinstance(pos, dict) else {"lat": 45.25, "lon": 19.83}, active_delivery=act_del if isinstance(act_del, dict) and act_del.get("id") else None, offers=offers if isinstance(offers, list) else [], message=msg, error=err, active_page="shift")
 
 
-@courier_front_bp.route("/moja-vozila", methods=["GET", "POST"])
+@courier_front_bp.route("/my-vehicles", methods=["GET", "POST"])
 @require_role("courier")
 def courier_vehicles():
     res = _crud_post({
@@ -191,22 +191,22 @@ def courier_vehicles():
         "delete": ("DELETE", "/resources/vehicles/{id}", None),
         "select": ("POST", "/users/{uid}/assign_vehicle/{id}", None),
         "unselect": ("POST", "/users/{uid}/unassign_vehicle/{id}", None),
-    }, "/courier/moja-vozila") if request.method == "POST" else None
+    }, "/courier/my-vehicles") if request.method == "POST" else None
     if res and not isinstance(res, str):
         return res
     _, items = _api("GET", f"/resources/vehicles?owner_id={g.user_id}")
     items = items.get("vehicles", []) if isinstance(items, dict) else (items if isinstance(items, list) else [])
     items = _filter(items, ("id", "license_plate", "brand", "model"))
     edit_item = next((v for v in items if v.get("id") == request.args.get("edit_id")), None)
-    return render_template("moja_vozila.html", current_user_id=g.user_id, vehicles=items, q=request.args.get("q", ""), edit_vehicle=edit_item, error=res, active_page="moja_vozila")
+    return render_template("my_vehicles.html", current_user_id=g.user_id, vehicles=items, q=request.args.get("q", ""), edit_vehicle=edit_item, error=res, active_page="my_vehicles")
 
 
-@courier_front_bp.route("/dostava", methods=["GET", "POST"])
+@courier_front_bp.route("/delivery", methods=["GET", "POST"])
 @require_role("courier")
 def courier_delivery():
     did = request.args.get("id") or request.form.get("delivery_id")
     if not did:
-        return redirect("/courier/smena")
+        return redirect("/courier/shift")
     err, msg = None, None
     if request.method == "POST":
         if request.form.get("action") == "set_location":
@@ -218,12 +218,12 @@ def courier_delivery():
                 "pickup": ("POST", f"/deliveries/{did}/pickup", {"courier_id": g.user_id}),
                 "deliver": ("POST", f"/deliveries/{did}/deliver", {"courier_id": g.user_id}),
                 "cancel": ("POST", f"/deliveries/{did}/cancel", {"courier_id": g.user_id}),
-            }, "/courier/smena" if request.form.get("action") in ("deliver", "cancel") else f"/courier/dostava?id={did}")
+            }, "/courier/shift" if request.form.get("action") in ("deliver", "cancel") else f"/courier/delivery?id={did}")
             if res and not isinstance(res, str):
                 return res
             err = res
     code, delivery = _api("GET", f"/deliveries/{did}")
     if code != 200 or not isinstance(delivery, dict):
-        return redirect("/courier/smena")
+        return redirect("/courier/shift")
     _, pos = _api("GET", f"/locations/current_position?user_id={g.user_id}")
-    return render_template("dostava.html", delivery=delivery, position=pos if isinstance(pos, dict) else {"lat": 45.25, "lon": 19.83}, message=msg, error=err, active_page="smena")
+    return render_template("delivery.html", delivery=delivery, position=pos if isinstance(pos, dict) else {"lat": 45.25, "lon": 19.83}, message=msg, error=err, active_page="shift")

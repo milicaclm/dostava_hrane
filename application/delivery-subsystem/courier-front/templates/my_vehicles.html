@@ -3,15 +3,15 @@
 {% block content %}
 <h1>Moja vozila</h1>
 
-<form method="GET" action="/courier/moja-vozila" class="row">
+<form method="GET" action="/courier/my-vehicles" class="row">
     <input type="text" name="q" value="{{ q }}" placeholder="Pretraži po oznaci, marki...">
     <button type="submit">Pretraži</button>
-    {% if q %}<a href="/courier/moja-vozila" class="btn">Resetuj</a>{% endif %}
+    {% if q %}<a href="/courier/my-vehicles" class="btn">Resetuj</a>{% endif %}
 </form>
 
 <div class="card">
     <h2>{{ 'Izmeni vozilo: ' ~ edit_vehicle.id if edit_vehicle else 'Novo lično vozilo' }}</h2>
-    <form method="POST" action="/courier/moja-vozila">
+    <form method="POST" action="/courier/my-vehicles">
         <input type="hidden" name="action" value="{{ 'update' if edit_vehicle else 'create' }}">
         {% if edit_vehicle %}
         <input type="hidden" name="id" value="{{ edit_vehicle.id }}">
@@ -47,7 +47,7 @@
             </div>
         </div>
         <button type="submit">{{ 'Sačuvaj izmene' if edit_vehicle else '+ Dodaj moje vozilo' }}</button>
-        {% if edit_vehicle %}<a href="/courier/moja-vozila" class="btn">Otkaži</a>{% endif %}
+        {% if edit_vehicle %}<a href="/courier/my-vehicles" class="btn">Otkaži</a>{% endif %}
     </form>
 </div>
 
@@ -77,8 +77,8 @@
             <td>{{ 'Da' if v.in_use else 'Ne' }}</td>
             <td>
                 {% if v.owner_id == current_user_id %}
-                <a href="/courier/moja-vozila?edit_id={{ v.id }}" class="btn">Izmeni</a>
-                <form method="POST" action="/courier/moja-vozila" class="inline">
+                <a href="/courier/my-vehicles?edit_id={{ v.id }}" class="btn">Izmeni</a>
+                <form method="POST" action="/courier/my-vehicles" class="inline">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="{{ v.id }}">
                     <button type="submit">Obriši</button>
@@ -89,13 +89,13 @@
             </td>
             <td>
                 {% if v.assigned_user_id == current_user_id %}
-                <form method="POST" action="/courier/moja-vozila" class="inline">
+                <form method="POST" action="/courier/my-vehicles" class="inline">
                     <input type="hidden" name="action" value="unselect">
                     <input type="hidden" name="id" value="{{ v.id }}">
                     <button type="submit">Otkaži</button>
                 </form>
                 {% else %}
-                <form method="POST" action="/courier/moja-vozila" class="inline">
+                <form method="POST" action="/courier/my-vehicles" class="inline">
                     <input type="hidden" name="action" value="select">
                     <input type="hidden" name="id" value="{{ v.id }}">
                     <button type="submit">Odaberi</button>

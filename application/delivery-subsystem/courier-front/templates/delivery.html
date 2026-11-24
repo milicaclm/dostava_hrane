@@ -1,7 +1,7 @@
 {% extends "courier_base.html" %}
 {% block title %}Aktivna dostava{% endblock %}
 {% block content %}
-<p><a href="/courier/smena" class="btn">&larr; Nazad na smenu</a></p>
+<p><a href="/courier/shift" class="btn">&larr; Nazad na smenu</a></p>
 <h1>Dostava {{ delivery.id }} — {{ delivery.status | fmt_status }}</h1>
 
 <div class="card">
@@ -23,7 +23,7 @@
 
 <div class="card">
     <h2>Ažuriraj lokaciju</h2>
-    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="row">
+    <form method="POST" action="/courier/delivery?id={{ delivery.id }}" class="row">
         <input type="hidden" name="action" value="set_location">
         <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
         <label>Lat: <input type="number" step="any" name="lat" value="{{ position.lat if position and position.lat is not none else 45.25 }}" required></label>
@@ -34,23 +34,23 @@
 
 <div class="row">
     {% if delivery.status == 'accepted' %}
-    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+    <form method="POST" action="/courier/delivery?id={{ delivery.id }}" class="inline">
         <input type="hidden" name="action" value="pickup">
         <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
         <button type="submit">Preuzmi dostavu</button>
     </form>
-    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+    <form method="POST" action="/courier/delivery?id={{ delivery.id }}" class="inline">
         <input type="hidden" name="action" value="cancel">
         <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
         <button type="submit">Otkaži dostavu</button>
     </form>
     {% elif delivery.status == 'in transit' %}
-    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+    <form method="POST" action="/courier/delivery?id={{ delivery.id }}" class="inline">
         <input type="hidden" name="action" value="deliver">
         <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
         <button type="submit">Isporuči dostavu</button>
     </form>
-    <form method="POST" action="/courier/dostava?id={{ delivery.id }}" class="inline">
+    <form method="POST" action="/courier/delivery?id={{ delivery.id }}" class="inline">
         <input type="hidden" name="action" value="cancel">
         <input type="hidden" name="delivery_id" value="{{ delivery.id }}">
         <button type="submit">Otkaži dostavu</button>
